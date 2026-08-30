@@ -15,3 +15,9 @@ if not OPENROUTER_API_KEY:
         "OPENROUTER_API_KEY is missing. "
         "Add it to your .env file."
     )
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError(
+        "DATABASE_URL is missing. Add it to your .env file."
+    )

@@ -1,7 +1,6 @@
-fastapi>=0.100.0
-uvicorn>=0.22.0
-pydantic>=2.0.0
-langgraph>=0.0.20
-langchain-core>=0.1.0
-pandas>=2.0.0
-websockets>=11.0
+fastapi
+uvicorn
+langgraph
+langchain
+langchain-openrouter
+python-dotenv

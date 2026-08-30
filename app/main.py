@@ -2,6 +2,9 @@ from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.schemas import CreateOrganizationRequest
+from app.db_models import OrganizationDB
+
 
 from app.database import get_db
 
@@ -135,4 +138,24 @@ async def get_procurement_request(
         "max_budget": procurement_request.max_budget,
         "status": procurement_request.status,
         "created_at": procurement_request.created_at,
+    }
+
+@app.post("/organizations")
+async def create_organization(
+    organization: CreateOrganizationRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    new_organization = OrganizationDB(
+        name=organization.name,
+    )
+
+    db.add(new_organization)
+
+    await db.commit()
+    await db.refresh(new_organization)
+
+    return {
+        "id": str(new_organization.id),
+        "name": new_organization.name,
+        "created_at": new_organization.created_at,
     }

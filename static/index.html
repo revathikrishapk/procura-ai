@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Autonomous Procurement AI Workflow</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 30px; background: #f4f6f9; }
+        .container { max-width: 950px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #0066cc; color: white; border: none; padding: 10px 18px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #0052a3; }
+        .timeline { border-left: 3px solid #ccc; padding-left: 15px; }
+        .step { margin-bottom: 15px; opacity: 0.4; transition: opacity 0.3s ease; }
+        .step.active { opacity: 1; font-weight: bold; color: #0066cc; }
+        .step.completed { opacity: 1; color: #28a745; }
+        .step.failed { opacity: 1; color: #dc3545; font-weight: bold; }
+        .approval-card { background: #fff3cd; border: 1px solid #ffeeba; padding: 18px; border-radius: 6px; margin-top: 20px; display: none; }
+        .btn-approve { background: #28a745; margin-right: 10px; }
+        .btn-reject { background: #dc3545; }
+        .card { background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 6px; margin-top: 15px; }
+        .quote-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .quote-table th, .quote-table td { padding: 8px; border: 1px solid #dee2e6; text-align: left; font-size: 13px; }
+        .quote-table th { background: #e9ecef; }
+        .selected-row { background: #d4edda; font-weight: bold; }
+        .tracking-list { padding-left: 20px; }
+        .tracking-list li { margin-bottom: 5px; color: #155724; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Autonomous Procurement Workflow</h2>
+    
+    <div class="grid">
+        <div>
+            <h3>New Purchase Request</h3>
+            <div class="form-group">
+                <label>Item Description:</label>
+                <input type="text" id="item_name" value="Laptops">
+            </div>
+            <div class="form-group">
+                <label>Quantity:</label>
+                <input type="number" id="quantity" value="50">
+            </div>
+            <div class="form-group">
+                <label>Max Budget ($):</label>
+                <input type="number" id="max_budget" value="40000">
+            </div>
+            <button onclick="startProcurement()">Initiate Request</button>
+        </div>
+
+        <div>
+            <h3>Live Agent Pipeline</h3>
+            <div class="timeline" id="timeline">
+                <div class="step" id="step-Intake">1. Intake Assistant</div>
+                <div class="step" id="step-Sourcing">2. Sourcing Assistant</div>
+                <div class="step" id="step-Negotiation">3. Negotiation Assistant</div>
+                <div class="step" id="step-Approval">4. Human Approval Gate</div>
+                <div class="step" id="step-PO">5. Purchase Order Assistant</div>
+                <div class="step" id="step-Tracking">6. Tracking Assistant</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="approval-card" id="approval-card">
+        <h3>⚠️ Action Required: High-Value Purchase Approval</h3>
+        <p id="approval-details"></p>
+        <button class="btn-approve" onclick="submitDecision(true)">Approve Purchase</button>
+        <button class="btn-reject" onclick="submitDecision(false)">Reject Purchase</button>
+    </div>
+
+    <div id="reasoning-card" class="card" style="display:none;">
+        <h4>Agent Reasoning & Quotes</h4>
+        <div id="reasoning-text"></div>
+        <div id="quote-table-container"></div>
+    </div>
+
+    <div id="results"></div>
+</div>
+
+<script>
+let currentRunId = null;
+let activeSocket = null;
+
+function resetUI() {
+    if (activeSocket) activeSocket.close();
+    document.getElementById('approval-card').style.display = 'none';
+    document.getElementById('reasoning-card').style.display = 'none';
+    document.getElementById('results').innerHTML = '';
+    document.querySelectorAll('.step').forEach(s => s.className = 'step');
+}
+
+async function startProcurement() {
+    resetUI();
+    const payload = {
+        item_name: document.getElementById('item_name').value,
+        quantity: parseInt(document.getElementById('quantity').value) || 0,
+        max_budget: parseFloat(document.getElementById('max_budget').value) || 0
+    };
+
+    const res = await fetch('/api/runs', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    currentRunId = data.run_id;
+    connectWebSocket(currentRunId);
+}
+
+function connectWebSocket(runId) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    activeSocket = new WebSocket(`${protocol}//${window.location.host}/ws/${runId}`);
+    activeSocket.onmessage = (e) => updateUI(JSON.parse(e.data));
+}
+
+function updateUI(state) {
+    if (state.intake_valid === false) {
+        markStep("step-Intake", "failed");
+        document.getElementById('results').innerHTML = `<div class="card" style="color:red;"><b>Intake Failed:</b> ${state.error_message}</div>`;
+        return;
+    }
+
+    const step = state.current_step;
+    if (step.includes("Intake")) markStep("step-Intake", "completed");
+    if (step.includes("Sourcing")) markStep("step-Sourcing", "completed");
+    
+    if (step.includes("Negotiation") || state.quotes.length > 0) {
+        markStep("step-Negotiation", "completed");
+        renderQuotes(state);
+    }
+
+    if (state.approval_required && state.approved === null) {
+        markStep("step-Approval", "active");
+        document.getElementById('approval-card').style.display = 'block';
+        document.getElementById('approval-details').innerText = 
+            `Best Quote: ${state.selected_quote.vendor_name} for total $${state.selected_quote.total_price.toLocaleString()}`;
+    } else if (state.approved === true) {
+        markStep("step-Approval", "completed");
+        document.getElementById('approval-card').style.display = 'none';
+    } else if (state.approved === false) {
+        markStep("step-Approval", "failed");
+        document.getElementById('approval-card').style.display = 'none';
+        document.getElementById('results').innerHTML = `<div class="card" style="color:red;"><b>Purchase Rejected by Manager.</b></div>`;
+        return;
+    }
+
+    if (step.includes("PO")) markStep("step-PO", "completed");
+    if (step.includes("Completed")) {
+        markStep("step-Tracking", "completed");
+        renderFinalOutput(state);
+    }
+}
+
+function renderQuotes(state) {
+    document.getElementById('reasoning-card').style.display = 'block';
+    document.getElementById('reasoning-text').innerHTML = `<p><i>${state.approver_notes || ''}</i></p>`;
+    
+    if (state.quotes && state.quotes.length > 0) {
+        let html = `<table class="quote-table"><thead><tr><th>Vendor</th><th>Unit Price</th><th>Discount</th><th>Total Price</th><th>Status</th></tr></thead><tbody>`;
+        state.quotes.forEach(q => {
+            const isSelected = q.selected;
+            html += `<tr class="${isSelected ? 'selected-row' : ''}">
+                <td>${q.vendor_name}</td>
+                <td>$${q.unit_price}</td>
+                <td>${q.applied_discount}</td>
+                <td>$${q.total_price.toLocaleString()}</td>
+                <td>${isSelected ? '<b>Selected</b>' : 'Candidate'}</td>
+            </tr>`;
+        });
+        html += `</tbody></table>`;
+        document.getElementById('quote-table-container').innerHTML = html;
+    }
+}
+
+function renderFinalOutput(state) {
+    const po = state.purchase_order;
+    const tracking = state.tracking_status || [];
+    
+    let trackHtml = '<ul class="tracking-list">';
+    tracking.forEach(t => trackHtml += `<li>✓ ${t}</li>`);
+    trackHtml += '</ul>';
+
+    document.getElementById('results').innerHTML = `
+        <div class="card" style="border-color:#28a745;">
+            <h3 style="color:#28a745;">✓ Purchase Order Issued: ${po.po_number}</h3>
+            <p><b>Vendor:</b> ${po.vendor_name} | <b>Total Cost:</b> $${po.total_cost.toLocaleString()}</p>
+            <h4>Live Order Tracking</h4>
+            ${trackHtml}
+        </div>
+    `;
+}
+
+function markStep(id, status) {
+    const el = document.getElementById(id);
+    if (el) el.className = `step ${status}`;
+}
+
+async function submitDecision(approved) {
+    await fetch(`/api/runs/${currentRunId}/approve`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ required: true, approved: approved, reason: approved ? "Approved via Manager Dashboard" : "Rejected" })
+    });
+}
+</script>
+</body>
+</html>

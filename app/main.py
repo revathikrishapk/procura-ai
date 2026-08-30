@@ -1,7 +1,7 @@
-from fastapi import FastAPI
-
-from fastapi import Depends
+from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 
 from app.database import get_db
 
@@ -74,4 +74,65 @@ async def create_procurement_request(
         "max_budget": new_request.max_budget,
         "status": new_request.status,
         "created_at": new_request.created_at,
+    }
+
+@app.get("/requests")
+async def get_procurement_requests(
+    skip: int = 0,
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ProcurementRequestDB)
+        .order_by(ProcurementRequestDB.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+
+    requests = result.scalars().all()
+
+    return {
+        "count": len(requests),
+        "requests": [
+            {
+                "id": request.id,
+                "raw_request": request.raw_request,
+                "item_name": request.item_name,
+                "quantity": request.quantity,
+                "max_budget": request.max_budget,
+                "status": request.status,
+                "created_at": request.created_at,
+            }
+            for request in requests
+        ],
+    }
+
+
+@app.get("/requests/{request_id}")
+async def get_procurement_request(
+    request_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ProcurementRequestDB).where(
+            ProcurementRequestDB.id == request_id
+        )
+    )
+
+    procurement_request = result.scalar_one_or_none()
+
+    if not procurement_request:
+        raise HTTPException(
+            status_code=404,
+            detail="Procurement request not found",
+        )
+
+    return {
+        "id": procurement_request.id,
+        "raw_request": procurement_request.raw_request,
+        "item_name": procurement_request.item_name,
+        "quantity": procurement_request.quantity,
+        "max_budget": procurement_request.max_budget,
+        "status": procurement_request.status,
+        "created_at": procurement_request.created_at,
     }

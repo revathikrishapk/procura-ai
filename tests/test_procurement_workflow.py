@@ -1,8 +1,13 @@
+import os
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
 import requests
 from fastapi.testclient import TestClient
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.types import Command
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -18,7 +23,10 @@ from app.models.product import Product
 from app.models.quote import Quote
 from app.models.supplier import Supplier
 from app.models.supplier_product import SupplierProduct
+from app.models.workflow_event import WorkflowEvent
 from app.routes import approvals, cases, delivery, po, quotes
+from app.services.dependencies import get_workflow_graph
+from app.services.langgraph_workflow import create_procurement_graph
 from app.services.sourcing_agent import SourcingError, search_external_suppliers
 
 
@@ -31,6 +39,11 @@ class ProcurementWorkflowTests(unittest.TestCase):
         )
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine, autoflush=False)
+        self.checkpointer = InMemorySaver()
+        self.workflow_graph = create_procurement_graph(
+            self.checkpointer,
+            session_factory=self.Session,
+        )
 
         def get_test_db():
             db = self.Session()
@@ -41,6 +54,7 @@ class ProcurementWorkflowTests(unittest.TestCase):
 
         for route_module in (cases, approvals, delivery, po, quotes):
             app.dependency_overrides[route_module.get_db] = get_test_db
+        app.dependency_overrides[get_workflow_graph] = lambda: self.workflow_graph
 
         with self.Session() as db:
             db.add_all([
@@ -74,6 +88,7 @@ class ProcurementWorkflowTests(unittest.TestCase):
     def tearDown(self):
         app.dependency_overrides.clear()
         self.client.close()
+        self.checkpointer = None
         Base.metadata.drop_all(self.engine)
         self.engine.dispose()
 
@@ -103,6 +118,22 @@ class ProcurementWorkflowTests(unittest.TestCase):
             self.assertEqual(approval.status, "PENDING")
             self.assertEqual(selected_quote.total_price, 4000000)
 
+        workflow = self.client.get(f"/cases/{response.json()['id']}/workflow")
+        self.assertEqual(workflow.status_code, 200)
+        self.assertTrue(workflow.json()["paused_for_approval"])
+        self.assertEqual(workflow.json()["current_stage"], "APPROVAL")
+        event_types = [entry["event_type"] for entry in workflow.json()["history"]]
+        self.assertIn("suppliers_evaluated", event_types)
+        self.assertIn("quotes_compared", event_types)
+        self.assertIn("negotiation_drafts_prepared", event_types)
+        self.assertTrue(workflow.json()["state"]["negotiation_drafts"])
+
+        decision = self.client.patch(
+            f"/approvals/{approval.id}/approve",
+            json={"approved_by": " requester "},
+        )
+        self.assertEqual(decision.status_code, 409)
+
         decision = self.client.patch(
             f"/approvals/{approval.id}/approve",
             json={"approved_by": "Approver"},
@@ -116,7 +147,7 @@ class ProcurementWorkflowTests(unittest.TestCase):
             case_record = db.get(ProcurementCase, response.json()["id"])
             self.assertEqual(purchase_order.status, "APPROVED")
             self.assertIsNotNone(delivery_record)
-            self.assertEqual(case_record.status, "PO_GENERATED")
+            self.assertEqual(case_record.status, "DELIVERY_IN_PROGRESS")
             purchase_order_id = purchase_order.id
             delivery_id = delivery_record.id
 
@@ -132,13 +163,18 @@ class ProcurementWorkflowTests(unittest.TestCase):
             f"/deliveries/{delivery_id}/status?new_status=DELIVERED"
         )
         self.assertEqual(delivered.status_code, 200)
+        workflow = self.client.get(f"/cases/{response.json()['id']}/workflow")
+        self.assertEqual(
+            workflow.json()["state"]["tracking_status"],
+            "MANUAL_TRACKING",
+        )
         with self.Session() as db:
             self.assertEqual(
                 db.get(ProcurementCase, response.json()["id"]).status,
                 "CLOSED",
             )
 
-    @patch("app.routes.cases.search_external_suppliers")
+    @patch("app.services.sourcing_agent.search_external_suppliers")
     def test_external_offer_is_provenanced_and_requires_approval(self, search):
         search.return_value = [
             {
@@ -166,7 +202,7 @@ class ProcurementWorkflowTests(unittest.TestCase):
             self.assertIn("₹22 lakh each", quote.notes)
             self.assertEqual(db.scalar(select(Approval)).status, "PENDING")
 
-    @patch("app.routes.cases.search_external_suppliers", return_value=[])
+    @patch("app.services.sourcing_agent.search_external_suppliers", return_value=[])
     def test_no_priced_offer_does_not_create_a_fake_quote(self, _search):
         response = self.create_case(product="Unavailable product", budget=1000)
         self.assertEqual(response.status_code, 201)
@@ -177,20 +213,26 @@ class ProcurementWorkflowTests(unittest.TestCase):
             self.assertIsNone(db.scalar(select(Approval)))
 
     @patch(
-        "app.routes.cases.search_external_suppliers",
+        "app.services.sourcing_agent.search_external_suppliers",
         side_effect=SourcingError("Tavily unavailable"),
     )
     def test_external_sourcing_failure_is_saved_and_retryable(self, _search):
         response = self.create_case(product="Uncatalogued product")
-        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["status"], "SOURCING_FAILED")
         with self.Session() as db:
             failed_case = db.scalar(select(ProcurementCase))
             self.assertEqual(failed_case.status, "SOURCING_FAILED")
             case_id = failed_case.id
 
         retry = self.client.post(f"/cases/{case_id}/source")
-        self.assertEqual(retry.status_code, 502)
-        self.assertIn("Tavily unavailable", retry.json()["detail"])
+        self.assertEqual(retry.status_code, 200)
+        self.assertEqual(retry.json()["status"], "SOURCING_FAILED")
+        workflow = self.client.get(f"/cases/{case_id}/workflow")
+        self.assertTrue(any(
+            "Tavily unavailable" in str(event["details"])
+            for event in workflow.json()["history"]
+        ))
 
     def test_missing_required_budget_is_rejected_before_sourcing(self):
         response = self.client.post(
@@ -231,6 +273,62 @@ class ProcurementWorkflowTests(unittest.TestCase):
                 db.get(ProcurementCase, response.json()["id"]).status,
                 "REJECTED",
             )
+
+    def test_sqlite_checkpoint_resumes_after_graph_reinstantiation(self):
+        case_id = "CASE-RESTART"
+        with self.Session() as db:
+            db.add(ProcurementCase(
+                id=case_id,
+                company_id="COMP-TEST",
+                requested_by="Requester",
+                product_name="NVIDIA H100",
+                quantity=2,
+                budget=5000000,
+                currency="INR",
+                status="REQUEST_SUBMITTED",
+                current_stage="INTAKE",
+            ))
+            db.commit()
+
+        state = {
+            "case_id": case_id,
+            "company_id": "COMP-TEST",
+            "requested_by": "Requester",
+            "product_name": "NVIDIA H100",
+            "quantity": 2,
+            "budget": 5000000,
+            "currency": "INR",
+            "status": "REQUEST_SUBMITTED",
+            "current_stage": "INTAKE",
+        }
+        config = {"configurable": {"thread_id": case_id}}
+        with tempfile.TemporaryDirectory() as directory:
+            checkpoint_path = os.path.join(directory, "checkpoints.sqlite")
+            with SqliteSaver.from_conn_string(checkpoint_path) as checkpointer:
+                checkpointer.setup()
+                graph = create_procurement_graph(checkpointer, self.Session)
+                graph.invoke(state, config=config)
+                self.assertTrue(graph.get_state(config).next)
+
+            with SqliteSaver.from_conn_string(checkpoint_path) as checkpointer:
+                checkpointer.setup()
+                resumed_graph = create_procurement_graph(checkpointer, self.Session)
+                self.assertEqual(
+                    resumed_graph.get_state(config).values["status"],
+                    "PENDING_APPROVAL",
+                )
+                resumed_graph.invoke(
+                    Command(resume={
+                        "decision": "approve",
+                        "approved_by": "Finance",
+                        "comments": "Approved",
+                    }),
+                    config=config,
+                )
+                self.assertEqual(
+                    resumed_graph.get_state(config).values["status"],
+                    "DELIVERY_IN_PROGRESS",
+                )
 
 
 if __name__ == "__main__":

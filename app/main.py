@@ -1,15 +1,24 @@
 from contextlib import asynccontextmanager
+from contextlib import ExitStack
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from langgraph.checkpoint.sqlite import SqliteSaver
 
 from app.db import init_db
 from app.routes import approvals, cases, companies, delivery, po, products, quotes, suppliers
+from app.services.langgraph_workflow import create_procurement_graph
 
 @asynccontextmanager
-async def lifespan(_app):
+async def lifespan(app):
     init_db()
-    yield
+    with ExitStack() as stack:
+        checkpointer = stack.enter_context(
+            SqliteSaver.from_conn_string("procura_checkpoints.sqlite")
+        )
+        checkpointer.setup()
+        app.state.procurement_graph = create_procurement_graph(checkpointer)
+        yield
 
 
 app = FastAPI(

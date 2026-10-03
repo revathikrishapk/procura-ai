@@ -8,6 +8,8 @@ from urllib.parse import urlparse
 import requests
 from dotenv import load_dotenv
 
+from app.services.database_service import find_internal_supplier_offers
+from app.services.workflow import ProcurementState
 
 class SourcingError(RuntimeError):
     pass
@@ -223,3 +225,24 @@ def choose_best_offer(offers):
             offer.get("lead_time_days") or 9999,
         ),
     )
+
+
+def run_sourcing_agent(state: ProcurementState, db):
+    internal_offers = find_internal_supplier_offers(
+        state["company_id"],
+        state["product_name"],
+        state["quantity"],
+        state["budget"],
+        state.get("currency", "INR"),
+        db,
+    )
+    if internal_offers:
+        return "internal", internal_offers
+
+    external_offers = search_external_suppliers(
+        state["product_name"],
+        state["budget"],
+        state["quantity"],
+        state.get("currency", "INR"),
+    )
+    return "external", external_offers

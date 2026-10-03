@@ -5,19 +5,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
-from app.models.approval import Approval
 from app.models.case import ProcurementCase
 from app.models.company import Company
-from app.models.quote import Quote
-from app.models.supplier import Supplier
+from app.models.workflow_event import WorkflowEvent
 from app.schemas.case import CaseCreate, CaseRead
-from app.services.database_service import find_internal_supplier_offers
-from app.services.intake_agent import validate_case_request
-from app.services.sourcing_agent import (
-    SourcingError,
-    choose_best_offer,
-    search_external_suppliers,
-)
+from app.services.dependencies import get_workflow_graph
+from app.services.langgraph_workflow import workflow_config, workflow_summary
 
 router = APIRouter(prefix="/cases")
 
@@ -30,132 +23,12 @@ def get_db():
         db.close()
 
 
-def _create_quote_for_offer(
-    db: Session,
-    case_record: ProcurementCase,
-    offer: dict,
-    status: str,
-):
-    supplier = db.scalar(
-        select(Supplier).where(
-            Supplier.company_id == case_record.company_id,
-            Supplier.name == offer["supplier_name"],
-        )
-    )
-    if not supplier:
-        supplier = Supplier(
-            id=f"SUP-{uuid4().hex[:8].upper()}",
-            company_id=case_record.company_id,
-            name=offer["supplier_name"],
-            website=offer.get("source"),
-            verification_status="UNVERIFIED",
-            discovery_source=offer.get("source_type", "internal").upper(),
-        )
-        db.add(supplier)
-        db.flush()
-
-    source_notes = (
-        f"Source: {offer['source']}\n"
-        f"Price evidence: {offer.get('price_evidence', 'Internal supplier catalog')}\n"
-        f"Extraction: {offer.get('extraction_method', 'internal catalog')}"
-    )
-    quote = Quote(
-        id=f"Q-{uuid4().hex[:8].upper()}",
-        case_id=case_record.id,
-        company_id=case_record.company_id,
-        supplier_id=supplier.id,
-        product_name=offer["product_name"],
-        quantity=case_record.quantity,
-        unit_price=offer["unit_price"],
-        total_price=offer["total_price"],
-        currency=offer["currency"],
-        delivery_days=offer.get("lead_time_days"),
-        notes=source_notes,
-        status=status,
-    )
-    db.add(quote)
-    return quote
-
-
-def _set_up_approval(db: Session, case_record: ProcurementCase, selected_quote: Quote):
-    approval = Approval(
-        id=f"APP-{uuid4().hex[:8].upper()}",
-        case_id=case_record.id,
-        company_id=case_record.company_id,
-        requested_by=case_record.requested_by,
-        amount=selected_quote.total_price,
-        currency=selected_quote.currency,
-        status="PENDING",
-        comments=f"Review selected quote {selected_quote.id} before purchase.",
-    )
-    db.add(approval)
-    case_record.status = "PENDING_APPROVAL"
-    case_record.current_stage = "PENDING_APPROVAL"
-
-
-def _source_case(db: Session, case_record: ProcurementCase):
-    offers = find_internal_supplier_offers(
-        case_record.company_id,
-        case_record.product_name,
-        case_record.quantity,
-        case_record.budget,
-        case_record.currency,
-        db,
-    )
-    if not offers:
-        try:
-            offers = search_external_suppliers(
-                case_record.product_name,
-                case_record.budget,
-                case_record.quantity,
-                case_record.currency,
-            )
-        except SourcingError as error:
-            case_record.status = "SOURCING_FAILED"
-            case_record.current_stage = "SOURCING_FAILED"
-            db.commit()
-            raise HTTPException(status_code=502, detail=str(error)) from error
-
-    if not offers:
-        case_record.status = "NO_MATCHING_OFFERS"
-        case_record.current_stage = "SOURCING_COMPLETE"
-        db.commit()
-        return
-
-    selected_offer = choose_best_offer(offers)
-    selected_quote = None
-    for offer in offers:
-        quote = _create_quote_for_offer(
-            db,
-            case_record,
-            offer,
-            "SELECTED" if offer is selected_offer else "ALTERNATIVE",
-        )
-        if offer is selected_offer:
-            selected_quote = quote
-
-    if selected_quote is None:
-        raise RuntimeError("Sourcing returned offers but no selected offer.")
-
-    _set_up_approval(db, case_record, selected_quote)
-    db.commit()
-    db.refresh(case_record)
-
-
 @router.post("", response_model=CaseRead, status_code=201)
-def create_case(case: CaseCreate, db: Session = Depends(get_db)):
-    payload = case.model_dump()
-    validation = validate_case_request(payload)
-    if not validation["valid"]:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "status": validation["status"],
-                "error": validation["error"],
-                "missing_fields": validation["missing_fields"],
-            },
-        )
-
+def create_case(
+    case: CaseCreate,
+    db: Session = Depends(get_db),
+    graph=Depends(get_workflow_graph),
+):
     company = db.get(Company, case.company_id)
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
@@ -176,7 +49,16 @@ def create_case(case: CaseCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(case_record)
 
-    _source_case(db, case_record)
+    graph.invoke(
+        {
+            **case.model_dump(),
+            "case_id": case_record.id,
+            "status": "REQUEST_SUBMITTED",
+            "current_stage": "INTAKE",
+        },
+        config=workflow_config(case_record.id),
+    )
+    db.refresh(case_record)
     return case_record
 
 
@@ -193,8 +75,40 @@ def get_case(case_id: str, db: Session = Depends(get_db)):
     return case
 
 
+@router.get("/{case_id}/workflow")
+def get_case_workflow(
+    case_id: str,
+    db: Session = Depends(get_db),
+    graph=Depends(get_workflow_graph),
+):
+    case = db.get(ProcurementCase, case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    summary = workflow_summary(graph, case_id)
+    events = db.scalars(
+        select(WorkflowEvent)
+        .where(WorkflowEvent.case_id == case_id)
+        .order_by(WorkflowEvent.created_at, WorkflowEvent.id)
+    ).all()
+    summary["history"] = [
+        {
+            "id": event.id,
+            "stage": event.stage,
+            "event_type": event.event_type,
+            "details": event.details,
+            "created_at": event.created_at,
+        }
+        for event in events
+    ]
+    return summary
+
+
 @router.post("/{case_id}/source", response_model=CaseRead)
-def retry_case_sourcing(case_id: str, db: Session = Depends(get_db)):
+def retry_case_sourcing(
+    case_id: str,
+    db: Session = Depends(get_db),
+    graph=Depends(get_workflow_graph),
+):
     case = db.get(ProcurementCase, case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -204,6 +118,20 @@ def retry_case_sourcing(case_id: str, db: Session = Depends(get_db)):
             detail="Only cases with failed or empty sourcing can be retried.",
         )
 
-    _source_case(db, case)
+    graph.invoke(
+        {
+            "case_id": case.id,
+            "company_id": case.company_id,
+            "requested_by": case.requested_by,
+            "product_name": case.product_name,
+            "description": case.description,
+            "quantity": case.quantity,
+            "budget": case.budget,
+            "currency": case.currency,
+            "status": "REQUEST_SUBMITTED",
+            "current_stage": "INTAKE",
+        },
+        config=workflow_config(case.id),
+    )
     db.refresh(case)
     return case

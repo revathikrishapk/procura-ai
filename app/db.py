@@ -36,6 +36,7 @@ def init_db():
     from app.models.approval import Approval
     from app.models.po import PurchaseOrder
     from app.models.delivery import Delivery
+    from app.models.workflow_event import WorkflowEvent
 
     Base.metadata.create_all(
         bind=engine

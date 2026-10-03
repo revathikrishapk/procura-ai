@@ -45,6 +45,9 @@ async function fetchWorkspaceData() {
     apiFetch('/purchase-orders'),
     apiFetch('/deliveries'),
   ])
+  const workflows = await Promise.all(
+    cases.map((caseItem) => apiFetch(`/cases/${caseItem.id}/workflow`)),
+  )
 
   return {
     companies,
@@ -55,6 +58,7 @@ async function fetchWorkspaceData() {
     approvals,
     purchaseOrders,
     deliveries,
+    workflows,
   }
 }
 
@@ -79,6 +83,7 @@ function App() {
   const [approvals, setApprovals] = useState([])
   const [purchaseOrders, setPurchaseOrders] = useState([])
   const [deliveries, setDeliveries] = useState([])
+  const [workflows, setWorkflows] = useState([])
   const [retryingCaseId, setRetryingCaseId] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -116,6 +121,7 @@ function App() {
       setApprovals(data.approvals)
       setPurchaseOrders(data.purchaseOrders)
       setDeliveries(data.deliveries)
+      setWorkflows(data.workflows)
       setError('')
     } catch (loadError) {
       setError(loadError.message)
@@ -137,6 +143,7 @@ function App() {
         setApprovals(data.approvals)
         setPurchaseOrders(data.purchaseOrders)
         setDeliveries(data.deliveries)
+        setWorkflows(data.workflows)
         setError('')
       })
       .catch((loadError) => {
@@ -491,6 +498,123 @@ function App() {
                 </tbody>
               </table>
             </div>
+          </section>
+
+          <section className="panel panel-wide">
+            <h2>Agent workflow runs</h2>
+            {workflows.length === 0 ? (
+              <p className="empty-state">Submit a procurement request to start the agent workflow.</p>
+            ) : (
+              <div className="workflow-run-list">
+                {workflows.map((workflow) => {
+                  const caseItem = cases.find((current) => current.id === workflow.case_id)
+                  const state = workflow.state || {}
+                  const completedStages = new Set(
+                    (workflow.history || []).map((event) => event.stage),
+                  )
+                  const agentStages = [
+                    ['INTAKE', 'Intake'],
+                    ['SOURCING', 'Supplier sourcing'],
+                    ['SUPPLIER_EVALUATION', 'Supplier evaluation'],
+                    ['QUOTATION_ANALYSIS', 'Quotation analysis'],
+                    ['NEGOTIATION', 'Negotiation / RFQ draft'],
+                    ['APPROVAL', 'Human approval'],
+                    ['PURCHASE_ORDER', 'Purchase order'],
+                    ['DELIVERY_TRACKING', 'Delivery tracking'],
+                  ]
+                  return (
+                    <details className="workflow-run" key={workflow.case_id}>
+                      <summary>
+                        <span>
+                          <strong>{caseItem?.product_name || workflow.case_id}</strong>
+                          <small>{workflow.case_id} · {workflow.current_stage || 'Workflow state unavailable'}</small>
+                        </span>
+                        <span className="status-pill">{workflow.status || caseItem?.status || 'UNKNOWN'}</span>
+                      </summary>
+                      <div className="workflow-run-content">
+                        <div className="workflow-agent-list">
+                          {agentStages.map(([stage, label]) => {
+                            const isCurrent = workflow.current_stage === stage
+                            const isComplete = completedStages.has(stage) && !isCurrent
+                            return (
+                              <span
+                                className={isCurrent ? 'is-current' : isComplete ? 'is-complete' : ''}
+                                key={stage}
+                              >
+                                {isComplete ? 'Done · ' : isCurrent ? 'Current · ' : ''}{label}
+                              </span>
+                            )
+                          })}
+                        </div>
+                        {state.error && <p className="error-inline">{state.error}</p>}
+                        {state.tracking_status && (
+                          <p className="tracking-note">
+                            Delivery tracking: {state.tracking_status} · {state.tracking_provider}
+                            {state.tracking_reference ? ` · ${state.tracking_reference}` : ''}
+                          </p>
+                        )}
+                        {state.supplier_evaluations?.length > 0 && (
+                          <div className="table-wrapper">
+                            <table>
+                              <thead>
+                                <tr>
+                                  <th>Supplier</th>
+                                  <th>Offer total</th>
+                                  <th>Score / 100</th>
+                                  <th>Verification</th>
+                                  <th>Evidence</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {state.supplier_evaluations.map((offer) => (
+                                  <tr key={`${workflow.case_id}-${offer.supplier_name}`}>
+                                    <td>{offer.supplier_name}</td>
+                                    <td>{formatCurrency(offer.total_price, offer.currency)}</td>
+                                    <td>{offer.evaluation_score}</td>
+                                    <td>{offer.verification_status}</td>
+                                    <td>
+                                      {offer.source && offer.source.startsWith('http')
+                                        ? <a className="source-link" href={offer.source} target="_blank" rel="noreferrer">Source</a>
+                                        : 'Company catalog'}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                        {state.negotiation_drafts?.length > 0 && (
+                          <div className="draft-list">
+                            <h3>RFQ / negotiation drafts (not sent)</h3>
+                            {state.negotiation_drafts.map((draft) => (
+                              <article className="draft-card" key={draft.rfq_id}>
+                                <strong>{draft.supplier_name} · {draft.rfq_id}</strong>
+                                <p>{draft.subject}</p>
+                                <p>{draft.body}</p>
+                                <small>Adapter: {draft.provider} · {draft.delivery_status}</small>
+                              </article>
+                            ))}
+                          </div>
+                        )}
+                        {workflow.history?.length > 0 && (
+                          <div className="audit-list">
+                            <h3>Execution history</h3>
+                            {workflow.history.map((event) => (
+                              <p key={event.id}>
+                                <strong>{event.stage}</strong> · {event.event_type}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        {workflow.paused_for_approval && (
+                          <p className="approval-note">Paused at the LangGraph human-approval interrupt. Approve or reject it in the Approval queue.</p>
+                        )}
+                      </div>
+                    </details>
+                  )
+                })}
+              </div>
+            )}
           </section>
 
           <div className="data-grid workflow-grid">

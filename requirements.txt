@@ -4,6 +4,7 @@ sqlalchemy
 pydantic
 pydantic-settings
 python-dotenv
+requests
 langgraph
 langgraph-checkpoint-sqlite
 aiosqlite

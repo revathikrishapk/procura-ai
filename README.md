@@ -34,8 +34,13 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. External supplier discovery requires
-`TAVILY_API_KEY` in a repository-root `.env` file.
+Open `http://localhost:5173`. Copy `.env.example` to `.env` in the repository
+root and configure `TAVILY_API_KEY` for external supplier discovery.
+Configure both `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` to enable OpenRouter;
+the selected model is account/provider dependent. Without an OpenRouter key,
+the local deterministic LLM demo adapter remains active. If a key is set but
+the model is missing, API startup fails with a configuration error rather
+than silently falling back to the demo.
 
 ## Workflow
 
@@ -64,13 +69,15 @@ the dashboard or with `POST /cases/{case_id}/source`.
 
 ## Integration boundaries
 
-Tavily is the only live external service currently used, when configured.
-The LLM gateway, email/RFQ, ERP, and logistics integrations are local demo
-adapters: no supplier messages are sent, no ERP system is updated, and no
-carrier is contacted. Replace these adapters in `app/services/adapters.py`
-when provider credentials and APIs are available. The local persistence layer
-uses SQLite; production identity/access management and deployment-grade
-database, secrets, and monitoring infrastructure are not configured.
+Tavily is used for external supplier discovery when configured. The LLM
+gateway can use OpenRouter when configured, otherwise it uses the local demo
+adapter. OpenRouter is called for intake summaries and RFQ draft text; its
+output does not set prices, choose suppliers, or approve a purchase. Drafts
+remain unsent and require human review. Email/RFQ delivery, ERP, and logistics
+are still local demo adapters: no supplier messages are sent, no ERP system
+is updated, and no carrier is contacted. The local persistence layer uses
+SQLite; production identity/access management and deployment-grade database,
+secrets, and monitoring infrastructure are not configured.
 
 ## Tests
 

@@ -16,9 +16,9 @@ from app.models.supplier import Supplier
 from app.models.workflow_event import WorkflowEvent
 from app.services.adapters import (
     DemoERPAdapter,
-    DemoLLMGateway,
     DemoLogisticsAdapter,
     DemoRFQAdapter,
+    create_llm_gateway,
 )
 from app.services.approval_agent import (
     build_approval_review,
@@ -69,12 +69,12 @@ def _save_case_state(
 def create_procurement_graph(
     checkpointer,
     session_factory: sessionmaker = SessionLocal,
-    llm_gateway: DemoLLMGateway | None = None,
+    llm_gateway: Any | None = None,
     rfq_adapter: DemoRFQAdapter | None = None,
     erp_adapter: DemoERPAdapter | None = None,
     logistics_adapter: DemoLogisticsAdapter | None = None,
 ):
-    llm_gateway = llm_gateway or DemoLLMGateway()
+    llm_gateway = llm_gateway or create_llm_gateway()
     rfq_adapter = rfq_adapter or DemoRFQAdapter()
     erp_adapter = erp_adapter or DemoERPAdapter()
     logistics_adapter = logistics_adapter or DemoLogisticsAdapter()

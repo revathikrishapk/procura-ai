@@ -183,6 +183,16 @@ class OpenRouterLLMGateway:
 
 
 def create_llm_gateway():
+    """Create the configured LLM gateway.
+
+    Respect FORCE_DEMO_LLM environment variable to force the local demo gateway
+    (useful for tests and CI where external model calls must be avoided).
+    """
+
+    # Allow tests or CI to force the demo gateway regardless of .env contents.
+    if os.getenv("FORCE_DEMO_LLM", "").lower() in ("1", "true", "yes"):
+        return DemoLLMGateway()
+
     env_path = Path(__file__).resolve().parents[2] / ".env"
     load_dotenv(env_path)
     api_key = os.getenv("OPENROUTER_API_KEY", "").strip()

@@ -71,6 +71,21 @@ def get_purchase_order(po_id: str, db: Session = Depends(get_db)):
     return po
 
 
+from fastapi.responses import StreamingResponse
+from app.services.pdf_generator import generate_purchase_order_pdf
+
+
+@router.get("/{po_id}/pdf")
+def get_purchase_order_pdf(po_id: str, db: Session = Depends(get_db)):
+    po = db.get(PurchaseOrder, po_id)
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    pdf_bytes = generate_purchase_order_pdf(db, po_id)
+    return StreamingResponse(iter([pdf_bytes]), media_type="application/pdf", headers={
+        "Content-Disposition": f"inline; filename={po.id}.pdf"
+    })
+
+
 @router.patch("/{po_id}/status", response_model=PurchaseOrderRead)
 def update_purchase_order_status(
     po_id: str,

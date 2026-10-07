@@ -671,17 +671,30 @@ function App() {
                 <ul className="list-stack">
                   {purchaseOrders.map((purchaseOrder) => (
                     <li key={purchaseOrder.id}>
-                      <strong>{purchaseOrder.id} · {purchaseOrder.product_name}</strong>
-                      <span>{purchaseOrder.status} · {formatCurrency(purchaseOrder.total_amount, purchaseOrder.currency)}</span>
-                      {purchaseOrder.status === 'APPROVED' && (
-                        <button
-                          type="button"
-                          className="small-button approve-button"
-                          onClick={() => updateRecordStatus(`/purchase-orders/${purchaseOrder.id}/status?new_status=ISSUED`)}
-                        >
-                          Mark PO issued
-                        </button>
-                      )}
+                      <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px'}}>
+                        <div>
+                          <strong>{purchaseOrder.id} · {purchaseOrder.product_name}</strong>
+                          <div className="muted">{purchaseOrder.status} · {formatCurrency(purchaseOrder.total_amount, purchaseOrder.currency)}</div>
+                        </div>
+                        <div style={{display: 'flex', gap: '8px'}}>
+                          <button
+                            type="button"
+                            className="small-button"
+                            onClick={() => window.open(`${API_BASE}/purchase-orders/${purchaseOrder.id}/pdf`, '_blank')}
+                          >
+                            View PO
+                          </button>
+                          {purchaseOrder.status === 'APPROVED' && (
+                            <button
+                              type="button"
+                              className="small-button approve-button"
+                              onClick={() => updateRecordStatus(`/purchase-orders/${purchaseOrder.id}/status?new_status=ISSUED`)}
+                            >
+                              Mark PO issued
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </li>
                   ))}
                 </ul>

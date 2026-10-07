@@ -8,3 +8,4 @@ requests
 langgraph
 langgraph-checkpoint-sqlite
 aiosqlite
+reportlab

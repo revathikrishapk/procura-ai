@@ -93,6 +93,8 @@ def find_internal_supplier_offers(
             offers.append({
                 "supplier_id": supplier.id,
                 "supplier_name": supplier.name,
+                "reliability_score": float(supplier.reliability_score or 0),
+                "verification_status": supplier.verification_status,
                 "product_id": product.id,
                 "product_name": product.name,
                 "unit_price": float(supplier_product.last_price),

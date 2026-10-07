@@ -1,6 +1,18 @@
 # Procura AI
 
-Procura AI is an early procurement workflow MVP built with FastAPI, SQLAlchemy, SQLite, and React.
+Procura AI is a working procurement-workflow prototype. A FastAPI backend runs a
+LangGraph state graph for request intake, supplier sourcing and evaluation,
+quotation comparison, negotiation/RFQ drafting, human approval, purchase-order
+creation, and delivery tracking. The React dashboard shows each case's current
+stage, evaluated offers and evidence, unsent drafts, audit events, and approval
+actions.
+
+The graph uses shared typed state and a SQLite LangGraph checkpointer keyed by
+case ID. Workflow events are also persisted in the application database. An
+approval request interrupts graph execution; approving or rejecting resumes
+the saved execution rather than starting a new workflow. The requester cannot
+approve or reject their own request. This separation-of-duties check is a
+prototype safeguard, not user authentication or authorization.
 
 ## Run locally on Windows
 
@@ -11,7 +23,8 @@ call .venv\Scripts\activate
 python -m uvicorn app.main:app --reload
 ```
 
-The API initializes the SQLite schema at startup and listens at `http://localhost:8000`. Interactive API docs are at `http://localhost:8000/docs`.
+The API initializes the SQLite schema and listens at `http://localhost:8000`.
+Interactive API documentation is at `http://localhost:8000/docs`.
 
 In another Command Prompt:
 
@@ -21,20 +34,50 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. External supplier sourcing requires `TAVILY_API_KEY` in the repository-root `.env` file.
+Open `http://localhost:5173`. Copy `.env.example` to `.env` in the repository
+root and configure `TAVILY_API_KEY` for external supplier discovery.
+Configure both `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` to enable OpenRouter;
+the selected model is account/provider dependent. Without an OpenRouter key,
+the local deterministic LLM demo adapter remains active. If a key is set but
+the model is missing, API startup fails with a configuration error rather
+than silently falling back to the demo.
 
-## Procurement flow
+## Workflow
 
-1. Submit a case with a company, product, positive quantity, positive budget, and currency.
-2. Procura checks the company catalog and filters internal supplier offers by currency and total budget.
-3. If no internal offer fits, Tavily searches the web and extracts the result pages. Procura only creates quotes when it finds an explicit price in the requested currency, with price evidence and the source URL recorded in the quote notes. It does not fabricate a price when pages contain no usable price.
-4. The lowest-priced eligible offer is selected and an approval is created. Other eligible offers are retained as alternatives.
-5. An authorized human approves or rejects the offer in the dashboard or API. Approval automatically creates an approved purchase-order record and a delivery-tracking record; rejection does not create a purchase order.
-6. After the buyer sends the PO to the supplier outside Procura, mark it issued. Update delivery as it moves in transit and mark it delivered to close the case.
+1. Intake validates the company, product, positive quantity, budget, and
+   currency; incomplete or invalid requests do not proceed to sourcing.
+2. Sourcing checks the company's internal supplier catalog first. If no
+   matching in-budget offer exists, Tavily searches for external offers.
+   Procura only creates an external offer when it extracts an explicit price
+   in the requested currency. The source URL and price evidence are retained;
+   it never fabricates a price.
+3. Supplier evaluation scores eligible offers and records verification
+   status. Quotation analysis compares offers, selects a candidate, and creates
+   an approval request.
+4. The negotiation agent prepares provider-labeled RFQ drafts. Drafts are
+   explicitly marked **not sent**; this prototype does not contact suppliers.
+5. LangGraph pauses at a human approval interrupt. A separate approver can
+   approve or reject the request. Approval creates a PO record and initializes
+   delivery tracking; rejection does not create a PO.
+6. Update PO and delivery statuses from the dashboard/API. Marking a delivery
+   complete closes its procurement case.
 
-If external sourcing fails or returns no priced offers, the case records `SOURCING_FAILED` or `NO_MATCHING_OFFERS`. Retry sourcing from the dashboard after the issue is resolved.
+Each case's workflow status, checkpointed graph state, and execution-event
+history can be inspected in the dashboard or at
+`GET /cases/{case_id}/workflow`. Failed or empty sourcing can be retried from
+the dashboard or with `POST /cases/{case_id}/source`.
 
-Web-extracted pricing is a lead for human review, not a binding supplier quote. Procura does not email suppliers or transmit orders to vendor systems; the purchase-order record is generated only after explicit human approval.
+## Integration boundaries
+
+Tavily is used for external supplier discovery when configured. The LLM
+gateway can use OpenRouter when configured, otherwise it uses the local demo
+adapter. OpenRouter is called for intake summaries and RFQ draft text; its
+output does not set prices, choose suppliers, or approve a purchase. Drafts
+remain unsent and require human review. Email/RFQ delivery, ERP, and logistics
+are still local demo adapters: no supplier messages are sent, no ERP system
+is updated, and no carrier is contacted. The local persistence layer uses
+SQLite; production identity/access management and deployment-grade database,
+secrets, and monitoring infrastructure are not configured.
 
 ## Tests
 

@@ -1,0 +1,7 @@
+metric,price_only_baseline,procura_ai,difference_procura_minus_baseline,improvement_percent,favorable_direction,notes
+Selection Accuracy (%),10.526316,26.315789,15.789474,150.000000,higher,2/19 vs 5/19 cases with at least one eligible offer; no-offer cases are not accuracy-eligible.
+Ranking Performance (mean Spearman rho),-0.694444,-0.111111,0.583333,N/A,higher,Mean per-case rho across 18 cases with at least two eligible offers; rho ranges from -1 to 1.
+Budget Compliance (%),100.000000,100.000000,0.000000,0.000000,higher,Selected offers within stated budget divided by cases with a selected supplier; sourcing filters out-of-budget internal offers.
+Evidence Coverage (%),93.333333,93.333333,0.000000,N/A,higher,56/60 raw synthetic offer rows have positive explicit prices plus non-empty source and price evidence fields. Same shared input coverage for both algorithms.
+Workflow Success Rate (%),N/A,100.000000,N/A,N/A,higher,19/19 eligible end-to-end workflow cases reached the expected post-interrupt terminal state. Price-only baseline has no workflow.
+Average Processing Time (seconds; lower is better),0.009147,0.012375,0.003227,-35.281896,lower,Per-case elapsed wall time for the same internal sourcing/filter query plus each selector; excludes database seeding and workflow.

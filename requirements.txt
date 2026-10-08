@@ -9,3 +9,4 @@ langgraph
 langgraph-checkpoint-sqlite
 aiosqlite
 reportlab
+matplotlib

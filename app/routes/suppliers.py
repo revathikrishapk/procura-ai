@@ -9,6 +9,7 @@ from app.models.company import Company
 from app.models.product import Product
 from app.models.supplier import Supplier
 from app.models.supplier_product import SupplierProduct
+from app.schemas.supplier_offer import SupplierOfferRead, SupplierOfferUpsert
 from app.schemas.supplier import SupplierCreate, SupplierRead
 
 router = APIRouter(prefix="/suppliers")
@@ -91,6 +92,106 @@ def link_supplier_to_product(supplier_id: str, product_id: str, db: Session = De
     db.add(relation)
     db.commit()
     return {"message": "Supplier linked to product", "supplier_id": supplier_id, "product_id": product_id}
+
+
+@router.put(
+    "/{supplier_id}/products/{product_id}/offer",
+    response_model=SupplierOfferRead,
+)
+def upsert_supplier_offer(
+    supplier_id: str,
+    product_id: str,
+    offer: SupplierOfferUpsert,
+    db: Session = Depends(get_db),
+):
+    supplier = db.get(Supplier, supplier_id)
+    product = db.get(Product, product_id)
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if supplier.company_id != product.company_id:
+        raise HTTPException(
+            status_code=409,
+            detail="Supplier and product must belong to the same company.",
+        )
+
+    relation = db.scalar(
+        select(SupplierProduct).where(
+            SupplierProduct.company_id == supplier.company_id,
+            SupplierProduct.supplier_id == supplier_id,
+            SupplierProduct.product_id == product_id,
+        )
+    )
+    if relation is None:
+        relation = SupplierProduct(
+            id=f"SP-{uuid4().hex[:8].upper()}",
+            company_id=supplier.company_id,
+            supplier_id=supplier_id,
+            product_id=product_id,
+        )
+        db.add(relation)
+
+    relation.last_price = offer.unit_price
+    relation.currency = offer.currency
+    relation.lead_time_days = offer.lead_time_days
+    relation.source = offer.source
+    db.commit()
+    db.refresh(relation)
+    return {
+        "id": relation.id,
+        "company_id": relation.company_id,
+        "supplier_id": supplier.id,
+        "supplier_name": supplier.name,
+        "product_id": product.id,
+        "product_name": product.name,
+        "unit_price": relation.last_price,
+        "currency": relation.currency,
+        "lead_time_days": relation.lead_time_days,
+        "source": relation.source,
+    }
+
+
+@router.get(
+    "/offers/company/{company_id}",
+    response_model=list[SupplierOfferRead],
+)
+def list_offers_for_company(company_id: str, db: Session = Depends(get_db)):
+    return get_supplier_offers(db, company_id)
+
+
+def get_supplier_offers(db: Session, company_id: str | None = None):
+    statement = (
+        select(SupplierProduct, Supplier, Product)
+        .join(Supplier, Supplier.id == SupplierProduct.supplier_id)
+        .join(Product, Product.id == SupplierProduct.product_id)
+    )
+    if company_id is not None:
+        statement = statement.where(SupplierProduct.company_id == company_id)
+    rows = db.execute(
+        statement
+        .order_by(Product.name, Supplier.name)
+    ).all()
+    return [
+        {
+            "id": relation.id,
+            "company_id": relation.company_id,
+            "supplier_id": supplier.id,
+            "supplier_name": supplier.name,
+            "product_id": product.id,
+            "product_name": product.name,
+            "unit_price": relation.last_price,
+            "currency": relation.currency,
+            "lead_time_days": relation.lead_time_days,
+            "source": relation.source,
+        }
+        for relation, supplier, product in rows
+    ]
+
+
+@router.get("/offers", response_model=list[SupplierOfferRead])
+def list_supplier_offers(db: Session = Depends(get_db)):
+    return get_supplier_offers(db)
 
 
 @router.get("/product/{product_id}", response_model=list[SupplierRead])

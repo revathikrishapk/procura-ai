@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 async function apiFetch(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -30,6 +30,7 @@ async function fetchWorkspaceData() {
     companies,
     products,
     suppliers,
+    supplierOffers,
     cases,
     quotes,
     approvals,
@@ -39,6 +40,7 @@ async function fetchWorkspaceData() {
     apiFetch('/companies'),
     apiFetch('/products'),
     apiFetch('/suppliers'),
+    apiFetch('/suppliers/offers'),
     apiFetch('/cases'),
     apiFetch('/quotes'),
     apiFetch('/approvals'),
@@ -53,6 +55,7 @@ async function fetchWorkspaceData() {
     companies,
     products,
     suppliers,
+    supplierOffers,
     cases,
     quotes,
     approvals,
@@ -78,6 +81,7 @@ function App() {
   const [companies, setCompanies] = useState([])
   const [products, setProducts] = useState([])
   const [suppliers, setSuppliers] = useState([])
+  const [supplierOffers, setSupplierOffers] = useState([])
   const [cases, setCases] = useState([])
   const [quotes, setQuotes] = useState([])
   const [approvals, setApprovals] = useState([])
@@ -100,6 +104,17 @@ function App() {
     name: '',
     email: '',
     website: '',
+    reliability_score: '0.5',
+    verification_status: 'UNVERIFIED',
+  })
+  const [offerForm, setOfferForm] = useState({
+    company_id: '',
+    supplier_id: '',
+    product_id: '',
+    unit_price: '',
+    currency: 'INR',
+    lead_time_days: '',
+    source: '',
   })
   const [caseForm, setCaseForm] = useState({
     company_id: '',
@@ -116,6 +131,7 @@ function App() {
       setCompanies(data.companies)
       setProducts(data.products)
       setSuppliers(data.suppliers)
+      setSupplierOffers(data.supplierOffers)
       setCases(data.cases)
       setQuotes(data.quotes)
       setApprovals(data.approvals)
@@ -138,6 +154,7 @@ function App() {
         setCompanies(data.companies)
         setProducts(data.products)
         setSuppliers(data.suppliers)
+        setSupplierOffers(data.supplierOffers)
         setCases(data.cases)
         setQuotes(data.quotes)
         setApprovals(data.approvals)
@@ -213,9 +230,50 @@ function App() {
           name: supplierForm.name,
           email: supplierForm.email || null,
           website: supplierForm.website || null,
+          reliability_score: Number(supplierForm.reliability_score),
+          verification_status: supplierForm.verification_status,
         }),
       })
-      setSupplierForm({ company_id: '', name: '', email: '', website: '' })
+      setSupplierForm({
+        company_id: '',
+        name: '',
+        email: '',
+        website: '',
+        reliability_score: '0.5',
+        verification_status: 'UNVERIFIED',
+      })
+      await loadData()
+    } catch (submitError) {
+      setError(submitError.message)
+    }
+  }
+
+  const handleOfferSubmit = async (event) => {
+    event.preventDefault()
+    try {
+      await apiFetch(
+        `/suppliers/${offerForm.supplier_id}/products/${offerForm.product_id}/offer`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            unit_price: Number(offerForm.unit_price),
+            currency: offerForm.currency,
+            lead_time_days: offerForm.lead_time_days
+              ? Number(offerForm.lead_time_days)
+              : null,
+            source: offerForm.source.trim() || 'INTERNAL',
+          }),
+        },
+      )
+      setOfferForm({
+        company_id: '',
+        supplier_id: '',
+        product_id: '',
+        unit_price: '',
+        currency: 'INR',
+        lead_time_days: '',
+        source: '',
+      })
       await loadData()
     } catch (submitError) {
       setError(submitError.message)
@@ -393,7 +451,113 @@ function App() {
                   onChange={(event) => setSupplierForm({ ...supplierForm, website: event.target.value })}
                   placeholder="Website"
                 />
+                <label>
+                  Reliability score (0–1)
+                  <input
+                    required
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={supplierForm.reliability_score}
+                    onChange={(event) => setSupplierForm({ ...supplierForm, reliability_score: event.target.value })}
+                  />
+                </label>
+                <label>
+                  Verification status
+                  <select
+                    value={supplierForm.verification_status}
+                    onChange={(event) => setSupplierForm({ ...supplierForm, verification_status: event.target.value })}
+                  >
+                    <option value="UNVERIFIED">Unverified</option>
+                    <option value="VERIFIED">Verified</option>
+                  </select>
+                </label>
                 <button type="submit" className="primary-button">Add supplier</button>
+              </form>
+            </section>
+
+            <section className="panel">
+              <h2>Add catalog offer</h2>
+              <p className="empty-state">
+                Add a priced offer to make a supplier eligible for sourcing.
+              </p>
+              <form onSubmit={handleOfferSubmit} className="stack-form">
+                <select
+                  required
+                  value={offerForm.company_id}
+                  onChange={(event) => setOfferForm({
+                    ...offerForm,
+                    company_id: event.target.value,
+                    supplier_id: '',
+                    product_id: '',
+                  })}
+                >
+                  <option value="">Select company</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>{company.name}</option>
+                  ))}
+                </select>
+                <select
+                  required
+                  value={offerForm.product_id}
+                  disabled={!offerForm.company_id}
+                  onChange={(event) => setOfferForm({ ...offerForm, product_id: event.target.value })}
+                >
+                  <option value="">Select product</option>
+                  {products
+                    .filter((product) => product.company_id === offerForm.company_id)
+                    .map((product) => (
+                      <option key={product.id} value={product.id}>{product.name}</option>
+                    ))}
+                </select>
+                <select
+                  required
+                  value={offerForm.supplier_id}
+                  disabled={!offerForm.company_id}
+                  onChange={(event) => setOfferForm({ ...offerForm, supplier_id: event.target.value })}
+                >
+                  <option value="">Select supplier</option>
+                  {suppliers
+                    .filter((supplier) => supplier.company_id === offerForm.company_id)
+                    .map((supplier) => (
+                      <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+                    ))}
+                </select>
+                <div className="inline-fields">
+                  <input
+                    required
+                    type="number"
+                    min="0.01"
+                    step="any"
+                    value={offerForm.unit_price}
+                    onChange={(event) => setOfferForm({ ...offerForm, unit_price: event.target.value })}
+                    placeholder="Unit price"
+                  />
+                  <select
+                    value={offerForm.currency}
+                    onChange={(event) => setOfferForm({ ...offerForm, currency: event.target.value })}
+                  >
+                    <option value="INR">INR</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                  </select>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  value={offerForm.lead_time_days}
+                  onChange={(event) => setOfferForm({ ...offerForm, lead_time_days: event.target.value })}
+                  placeholder="Lead time in days (optional)"
+                />
+                <input
+                  type="url"
+                  value={offerForm.source}
+                  onChange={(event) => setOfferForm({ ...offerForm, source: event.target.value })}
+                  placeholder="Source URL (optional)"
+                />
+                <button type="submit" className="primary-button">Save supplier offer</button>
               </form>
             </section>
 
@@ -452,6 +616,44 @@ function App() {
               </form>
             </section>
           </div>
+
+          <section className="panel panel-wide">
+            <h2>Supplier catalog offers</h2>
+            {supplierOffers.length === 0 ? (
+              <p className="empty-state">
+                Add supplier offers with prices above to enable internal sourcing.
+              </p>
+            ) : (
+              <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Supplier</th>
+                      <th>Unit price</th>
+                      <th>Lead time</th>
+                      <th>Source</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {supplierOffers.map((offer) => (
+                      <tr key={offer.id}>
+                        <td>{offer.product_name}</td>
+                        <td>{offer.supplier_name}</td>
+                        <td>{formatCurrency(offer.unit_price, offer.currency)}</td>
+                        <td>{offer.lead_time_days == null ? 'Not provided' : `${offer.lead_time_days} days`}</td>
+                        <td>
+                          {offer.source?.startsWith('http')
+                            ? <a className="source-link" href={offer.source} target="_blank" rel="noreferrer">View source</a>
+                            : 'Internal catalog'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
 
           <section className="panel panel-wide">
             <h2>Procurement pipeline</h2>
@@ -560,7 +762,7 @@ function App() {
                                 <tr>
                                   <th>Supplier</th>
                                   <th>Offer total</th>
-                                  <th>Score / 100</th>
+                                  <th>Score</th>
                                   <th>Verification</th>
                                   <th>Evidence</th>
                                 </tr>

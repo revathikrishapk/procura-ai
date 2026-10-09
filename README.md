@@ -35,7 +35,11 @@ npm run dev
 ```
 
 Open `http://localhost:5173`. Copy `.env.example` to `.env` in the repository
-root and configure `TAVILY_API_KEY` for external supplier discovery.
+root and configure `TAVILY_API_KEY` for external supplier discovery. Copy
+`frontend/.env.example` to `frontend/.env.local` if the API uses a different
+address. The application database and LangGraph checkpoint path can be
+configured with `DATABASE_URL` and `LANGGRAPH_CHECKPOINT_PATH`; set
+`CORS_ORIGINS` to the frontend origin(s) when hosting the UI elsewhere.
 Configure both `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` to enable OpenRouter;
 the selected model is account/provider dependent. Without an OpenRouter key,
 the local deterministic LLM demo adapter remains active. If a key is set but
@@ -43,6 +47,16 @@ the model is missing, API startup fails with a configuration error rather
 than silently falling back to the demo.
 
 ## Workflow
+
+### First-time catalog setup
+
+In the dashboard, create a company, add its products and suppliers, then use
+**Add catalog offer** to enter a positive unit price, currency, optional lead
+time, and optional source URL. Set the supplier's reliability score from `0`
+to `1` and its verification status when adding it. A supplier without a priced
+offer is not eligible for internal sourcing. When a request is submitted,
+Procura searches the internal catalog first and searches externally only if
+there are no eligible in-budget internal offers.
 
 1. Intake validates the company, product, positive quantity, budget, and
    currency; incomplete or invalid requests do not proceed to sourcing.
@@ -78,6 +92,15 @@ are still local demo adapters: no supplier messages are sent, no ERP system
 is updated, and no carrier is contacted. The local persistence layer uses
 SQLite; production identity/access management and deployment-grade database,
 secrets, and monitoring infrastructure are not configured.
+
+The current default is a local, single-workspace MVP without login or
+user-level authorization. It is suitable for a controlled demo, not an
+internet-facing production deployment. Protect the API behind an authenticated
+gateway and configure a production database, secrets handling, and access
+controls before using real procurement or supplier data. Set
+`VITE_API_BASE_URL` in the frontend environment when the API is not at
+`http://localhost:8000`. A non-SQLite `DATABASE_URL` also requires the matching
+SQLAlchemy database driver to be installed.
 
 ## Tests
 

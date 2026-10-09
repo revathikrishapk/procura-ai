@@ -107,6 +107,15 @@ h1 {
   gap: 12px;
 }
 
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .inline-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

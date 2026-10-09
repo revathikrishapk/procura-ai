@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from contextlib import ExitStack
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,12 @@ async def lifespan(app):
     init_db()
     with ExitStack() as stack:
         checkpointer = stack.enter_context(
-            SqliteSaver.from_conn_string("procura_checkpoints.sqlite")
+            SqliteSaver.from_conn_string(
+                os.getenv(
+                    "LANGGRAPH_CHECKPOINT_PATH",
+                    "procura_checkpoints.sqlite",
+                )
+            )
         )
         checkpointer.setup()
         app.state.procurement_graph = create_procurement_graph(checkpointer)
@@ -30,7 +36,14 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        origin.strip()
+        for origin in os.getenv(
+            "CORS_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173",
+        ).split(",")
+        if origin.strip()
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

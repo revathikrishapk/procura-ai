@@ -24,7 +24,7 @@ from app.models.quote import Quote
 from app.models.supplier import Supplier
 from app.models.supplier_product import SupplierProduct
 from app.models.workflow_event import WorkflowEvent
-from app.routes import approvals, cases, delivery, po, quotes
+from app.routes import approvals, cases, delivery, po, quotes, suppliers
 from app.services.dependencies import get_workflow_graph
 from app.services.langgraph_workflow import create_procurement_graph
 from app.services.sourcing_agent import SourcingError, search_external_suppliers
@@ -52,7 +52,7 @@ class ProcurementWorkflowTests(unittest.TestCase):
             finally:
                 db.close()
 
-        for route_module in (cases, approvals, delivery, po, quotes):
+        for route_module in (cases, approvals, delivery, po, quotes, suppliers):
             app.dependency_overrides[route_module.get_db] = get_test_db
         app.dependency_overrides[get_workflow_graph] = lambda: self.workflow_graph
 
@@ -103,6 +103,94 @@ class ProcurementWorkflowTests(unittest.TestCase):
                 "budget": budget,
             },
         )
+
+    def test_supplier_offer_can_be_created_and_used_by_procurement_workflow(self):
+        response = self.client.put(
+            "/suppliers/SUP-TEST/products/PROD-TEST/offer",
+            json={
+                "unit_price": 1750000,
+                "currency": "INR",
+                "lead_time_days": 7,
+                "source": "https://supplier.example/h100-quote",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["unit_price"], 1750000)
+        self.assertEqual(response.json()["lead_time_days"], 7)
+
+        listed = self.client.get("/suppliers/offers")
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(len(listed.json()), 1)
+        self.assertEqual(listed.json()[0]["source"], "https://supplier.example/h100-quote")
+
+        case_response = self.create_case()
+        self.assertEqual(case_response.status_code, 201)
+        self.assertEqual(case_response.json()["status"], "PENDING_APPROVAL")
+        with self.Session() as db:
+            selected_quote = db.scalar(
+                select(Quote).where(Quote.status == "SELECTED")
+            )
+            approval = db.scalar(select(Approval))
+            self.assertEqual(selected_quote.unit_price, 1750000)
+            self.assertIn("https://supplier.example/h100-quote", selected_quote.notes)
+            approval_id = approval.id
+
+        approval_response = self.client.patch(
+            f"/approvals/{approval_id}/approve",
+            json={"approved_by": "Finance Reviewer"},
+        )
+        self.assertEqual(approval_response.status_code, 200)
+        with self.Session() as db:
+            purchase_order = db.scalar(select(PurchaseOrder))
+            delivery_record = db.scalar(select(Delivery))
+            self.assertIsNotNone(purchase_order)
+            self.assertEqual(purchase_order.unit_price, 1750000)
+            self.assertIsNotNone(delivery_record)
+            po_id = purchase_order.id
+            delivery_id = delivery_record.id
+
+        pdf_response = self.client.get(f"/purchase-orders/{po_id}/pdf")
+        self.assertEqual(pdf_response.status_code, 200)
+        self.assertEqual(pdf_response.headers["content-type"], "application/pdf")
+        self.assertTrue(pdf_response.content.startswith(b"%PDF"))
+
+        delivered = self.client.patch(
+            f"/deliveries/{delivery_id}/status?new_status=DELIVERED"
+        )
+        self.assertEqual(delivered.status_code, 200)
+        with self.Session() as db:
+            case_record = db.get(ProcurementCase, case_response.json()["id"])
+            self.assertEqual(case_record.status, "CLOSED")
+
+    def test_supplier_offer_rejects_cross_company_product(self):
+        with self.Session() as db:
+            db.add_all([
+                Company(id="COMP-OTHER", name="Other Company"),
+                Product(
+                    id="PROD-OTHER",
+                    company_id="COMP-OTHER",
+                    name="Other product",
+                    category="Test",
+                ),
+            ])
+            db.commit()
+
+        response = self.client.put(
+            "/suppliers/SUP-TEST/products/PROD-OTHER/offer",
+            json={"unit_price": 10, "currency": "INR"},
+        )
+        self.assertEqual(response.status_code, 409)
+
+    def test_supplier_reliability_input_must_match_scoring_scale(self):
+        response = self.client.post(
+            "/suppliers",
+            json={
+                "company_id": "COMP-TEST",
+                "name": "Invalid Reliability Supplier",
+                "reliability_score": 1.5,
+            },
+        )
+        self.assertEqual(response.status_code, 422)
 
     def test_internal_offer_requires_approval_then_generates_po_and_delivery(self):
         response = self.create_case()

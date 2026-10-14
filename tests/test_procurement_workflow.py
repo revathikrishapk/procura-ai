@@ -24,7 +24,7 @@ from app.models.quote import Quote
 from app.models.supplier import Supplier
 from app.models.supplier_product import SupplierProduct
 from app.models.workflow_event import WorkflowEvent
-from app.routes import approvals, cases, delivery, po, quotes, suppliers
+from app.routes import approvals, cases, delivery, demo, po, quotes, suppliers
 from app.services.dependencies import get_workflow_graph
 from app.services.langgraph_workflow import create_procurement_graph
 from app.services.sourcing_agent import SourcingError, search_external_suppliers
@@ -52,7 +52,7 @@ class ProcurementWorkflowTests(unittest.TestCase):
             finally:
                 db.close()
 
-        for route_module in (cases, approvals, delivery, po, quotes, suppliers):
+        for route_module in (cases, approvals, delivery, demo, po, quotes, suppliers):
             app.dependency_overrides[route_module.get_db] = get_test_db
         app.dependency_overrides[get_workflow_graph] = lambda: self.workflow_graph
 
@@ -103,6 +103,35 @@ class ProcurementWorkflowTests(unittest.TestCase):
                 "budget": budget,
             },
         )
+
+    def test_demo_seed_is_idempotent(self):
+        with patch("app.routes.demo.DATABASE_URL", "sqlite://"):
+            first = self.client.post("/demo/seed")
+            second = self.client.post("/demo/seed")
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(first.json(), second.json())
+
+        with self.Session() as db:
+            self.assertEqual(db.query(Company).filter_by(id="DEMO-COMPANY").count(), 1)
+            self.assertEqual(db.query(Product).filter_by(id="DEMO-PRODUCT").count(), 1)
+            self.assertEqual(db.query(Supplier).filter_by(id="DEMO-SUPPLIER").count(), 1)
+            self.assertEqual(
+                db.query(SupplierProduct).filter_by(id="DEMO-OFFER").count(),
+                1,
+            )
+
+    def test_demo_seed_is_disabled_in_production(self):
+        with (
+            patch("app.routes.demo.DATABASE_URL", "sqlite://"),
+            patch.dict(os.environ, {"APP_ENV": "production"}),
+        ):
+            response = self.client.post("/demo/seed")
+
+        self.assertEqual(response.status_code, 403)
+        with self.Session() as db:
+            self.assertIsNone(db.get(Company, "DEMO-COMPANY"))
 
     def test_supplier_offer_can_be_created_and_used_by_procurement_workflow(self):
         response = self.client.put(

@@ -4,20 +4,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.getenv(
-    "OPENROUTER_MODEL",
-    "openrouter/free",
-)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY") or "demo-key"
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
+APP_ENV = os.getenv("APP_ENV", "development")
 
-if not OPENROUTER_API_KEY:
-    raise ValueError(
-        "OPENROUTER_API_KEY is missing. "
-        "Add it to your .env file."
-    )
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-if not DATABASE_URL:
-    raise ValueError(
-        "DATABASE_URL is missing. Add it to your .env file."
-    )
+_raw_database_url = os.getenv("DATABASE_URL")
+if APP_ENV == "production" and _raw_database_url:
+    DATABASE_URL = _raw_database_url
+else:
+    DATABASE_URL = _raw_database_url if _raw_database_url and "supabase" not in _raw_database_url.lower() and "postgres" not in _raw_database_url.lower() else "sqlite+aiosqlite:///./procura_demo.db"

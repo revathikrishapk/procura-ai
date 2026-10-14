@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Procura AI Demo</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-2: #1f2937;
+        --accent: #38bdf8;
+        --accent-2: #14b8a6;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --success: #22c55e;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #0f172a, #111827);
+        color: var(--text);
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+      }
+      h1 { margin: 0; }
+      .grid { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+      .card {
+        background: rgba(17, 24, 39, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 12px;
+        padding: 18px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      }
+      form { display: grid; gap: 12px; }
+      label { display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
+      input, select, button, textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.8);
+        color: var(--text);
+      }
+      button {
+        cursor: pointer;
+        font-weight: 700;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        color: #082f49;
+        border: none;
+      }
+      button.secondary { background: rgba(148,163,184,0.2); color: var(--text); }
+      button.warning { background: linear-gradient(90deg, #f59e0b, #f97316); color: #111827; }
+      .status {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: rgba(56, 189, 248, 0.08);
+        color: var(--text);
+        white-space: pre-wrap;
+      }
+      pre {
+        background: rgba(15, 23, 42, 0.8);
+        color: #dbeafe;
+        border-radius: 8px;
+        padding: 12px;
+        overflow: auto;
+      }
+      .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; }
+      .badge.ok { background: rgba(34, 197, 94, 0.2); color: #bbf7d0; }
+      .badge.warn { background: rgba(245, 158, 11, 0.2); color: #fde68a; }
+      .badge.error { background: rgba(239, 68, 68, 0.2); color: #fecaca; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="topbar">
+        <h1>Procura AI Demo</h1>
+        <button class="secondary" id="seedDemoBtn">Reset demo data</button>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Company setup</h2>
+          <form id="companyForm">
+            <label>Company name<input name="name" value="Northwind Labs" /></label>
+            <button type="submit">Create company</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Product setup</h2>
+          <form id="productForm">
+            <label>Company ID<input name="company_id" value="1" /></label>
+            <label>Product name<input name="name" value="Laptop Workstation" /></label>
+            <label>Category<input name="category" value="IT Equipment" /></label>
+            <label>Unit<input name="unit" value="unit" /></label>
+            <button type="submit">Create product</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Supplier setup</h2>
+          <form id="supplierForm">
+            <label>Name<input name="name" value="Demo Supplier Co." /></label>
+            <label>Email<input name="contact_email" value="demo@example.com" /></label>
+            <label>Country<input name="country" value="US" /></label>
+            <label>Reliability score<input type="number" step="0.01" name="reliability_score" value="0.93" /></label>
+            <label>Verification score<input type="number" step="0.01" name="verification_score" value="0.89" /></label>
+            <button type="submit">Create supplier</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Offer setup</h2>
+          <form id="offerForm">
+            <label>Supplier ID<input name="supplier_id" value="1" /></label>
+            <label>Product ID<input name="product_id" value="1" /></label>
+            <label>Price<input type="number" step="0.01" name="price" value="1200" /></label>
+            <label>Currency<select name="currency"><option>USD</option><option>EUR</option><option>GBP</option></select></label>
+            <label>Lead time days<input type="number" name="lead_time_days" value="7" /></label>
+            <label>Internal<select name="is_internal"><option value="true">Yes</option><option value="false">No</option></select></label>
+            <button type="submit">Create offer</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Request intake</h2>
+          <form id="caseForm">
+            <label>Company ID<input name="company_id" value="1" /></label>
+            <label>Product ID<input name="product_id" value="1" /></label>
+            <label>Quantity<input type="number" name="quantity" value="5" /></label>
+            <label>Budget<input type="number" step="0.01" name="budget" value="7000" /></label>
+            <label>Currency<select name="currency"><option>USD</option><option>EUR</option><option>GBP</option></select></label>
+            <label>Requester<input name="requester_name" value="Alicia" /></label>
+            <label>Notes<textarea name="notes">Demo procurement case</textarea></label>
+            <button type="submit">Submit request</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Workflow actions</h2>
+          <form id="workflowForm">
+            <label>Case ID<input name="case_id" value="1" /></label>
+            <button type="button" id="sourceBtn">Source suppliers</button>
+            <button type="button" id="evaluateBtn" class="secondary">Evaluate offers</button>
+            <button type="button" id="draftBtn" class="secondary">Generate RFQ draft</button>
+            <label>Approver<input id="approverName" value="Marcus" /></label>
+            <button type="button" id="approveBtn">Approve</button>
+            <button type="button" id="rejectBtn" class="warning">Reject</button>
+            <button type="button" id="deliveryBtn" class="secondary">Mark delivered</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 24px;">
+        <h2>Live workflow output</h2>
+        <div id="statusBox" class="status">Ready to start the local demo.</div>
+        <pre id="responseBox"></pre>
+      </div>
+    </div>
+
+    <script>
+      const apiBase = '/';
+      const statusBox = document.getElementById('statusBox');
+      const responseBox = document.getElementById('responseBox');
+
+      function setStatus(message) {
+        statusBox.textContent = message;
+      }
+
+      async function requestJson(url, options = {}) {
+        const resp = await fetch(url, {
+          headers: { 'Content-Type': 'application/json' },
+          ...options,
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          throw new Error(data.detail || `Request failed with ${resp.status}`);
+        }
+        return data;
+      }
+
+      document.getElementById('companyForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(event.target).entries());
+        try {
+          const result = await requestJson('/companies', { method: 'POST', body: JSON.stringify(payload) });
+          setStatus('Company created successfully.');
+          responseBox.textContent = JSON.stringify(result, null, 2);
+        } catch (error) {
+          setStatus(error.message);
+        }
+      });
+
+      document.getElementById('productForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(event.target).entries());
+        payload.company_id = Number(payload.company_id);
+        try {
+          const result = await requestJson('/products', { method: 'POST', body: JSON.stringify(payload) });
+          setStatus('Product saved.');
+          responseBox.textContent = JSON.stringify(result, null, 2);
+        } catch (error) {
+          setStatus(error.message);
+        }
+      });
+
+      document.getElementById('supplierForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(event.target).entries());
+        payload.reliability_score = Number(payload.reliability_score);
+        payload.verification_score = Number(payload.verification_score);
+        try {
+          const result = await requestJson('/suppliers', { method: 'POST', body: JSON.stringify(payload) });
+          setStatus('Supplier created.');
+          responseBox.textContent = JSON.stringify(result, null, 2);
+        } catch (error) {
+          setStatus(error.message);
+        }
+      });
+
+      document.getElementById('offerForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(event.target).entries());
+        payload.supplier_id = Number(payload.supplier_id);
+        payload.product_id = Number(payload.product_id);
+        payload.price = Number(payload.price);
+        payload.lead_time_days = Number(payload.lead_time_days);
+        payload.is_internal = payload.is_internal === 'true';
+        try {
+          const result = await requestJson('/offers', { method: 'POST', body: JSON.stringify(payload) });
+          setStatus('Offer created.');
+          responseBox.textContent = JSON.stringify(result, null, 2);
+        } catch (error) {
+          setStatus(error.message);
+        }
+      });
+
+      document.getElementById('caseForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(event.target).entries());
+        payload.company_id = Number(payload.company_id);
+        payload.product_id = Number(payload.product_id);
+        payload.quantity = Number(payload.quantity);
+        payload.budget = Number(payload.budget);
+        try {
+          const result = await requestJson('/cases', { method: 'POST', body: JSON.stringify(payload) });
+          document.querySelector('#workflowForm input[name="case_id"]').value = result.id;
+          setStatus('Procurement case created.');
+          responseBox.textContent = JSON.stringify(result, null, 2);
+        } catch (error) {
+          setStatus(error.message);
+        }
+      });
+
+      document.getElementById('sourceBtn').addEventListener('click', async () => {
+        const caseId = document.querySelector('#workflowForm input[name="case_id"]').value;
+        try {
+          const result = await requestJson(`/cases/${caseId}/source`, { method: 'POST', body: '{}' });
+          setStatus('Supplier sourcing complete.');
+          responseBox.textContent = JSON.stringify(result, null, 2);
+        } catch (error) { setStatus(error.message); }
+      });
+
+      document.getElementById('evaluateBtn').addEventListener('click', async () => {
+        const caseId = document.querySelector('#workflowForm input[name="case_id"]').value;
+        try {
+          const result = await requestJson(`/cases/${caseId}/evaluate`, { method: 'POST', body: '{}' });
+          setStatus('Offers evaluated.');
+          responseBox.textContent = JSON.stringify(result, null, 2);
+        } catch (error) { setStatus(error.message); }
+      });
+
+      document.getElementById('draftBtn').addEventListener('click', async () => {
+        const caseId = document.querySelector('#workflowForm input[name="case_id"]').value;
+        try {
+          const result = await requestJson(`/cases/${caseId}/rfq-draft`, { method: 'POST', body: '{}' });
+          setStatus('RFQ draft generated.');
+          responseBox.textContent = JSON.stringify(result, null, 2);
+        } catch (error) { setStatus(error.message); }
+      });
+
+      document.getElementById('approveBtn').addEventListener('click', async () => {
+        const caseId = document.querySelector('#workflowForm input[name="case_id"]').value;
+        const approverName = document.getElementById('approverName').value;
+        try {
+          const result = await requestJson(`/cases/${caseId}/approve`, { method: 'POST', body: JSON.stringify({ approver_name: approverName, decision: 'approved', reason: 'Approved by demo reviewer.' }) });
+          setStatus('Approval recorded.');
+          responseBox.textContent = JSON.stringify(result, null, 2);
+        } catch (error) { setStatus(error.message); }
+      });
+
+      document.getElementById('rejectBtn').addEventListener('click', async () => {
+        const caseId = document.querySelector('#workflowForm input[name="case_id"]').value;
+        const approverName = document.getElementById('approverName').value;
+        try {
+          const result = await requestJson(`/cases/${caseId}/reject`, { method: 'POST', body: JSON.stringify({ approver_name: approverName, decision: 'rejected', reason: 'Demo rejection.' }) });
+          setStatus('Case rejected.');
+          responseBox.textContent = JSON.stringify(result, null, 2);
+        } catch (error) { setStatus(error.message); }
+      });
+
+      document.getElementById('deliveryBtn').addEventListener('click', async () => {
+        const caseId = document.querySelector('#workflowForm input[name="case_id"]').value;
+        try {
+          const workflow = await requestJson(`/cases/${caseId}/workflow`, { method: 'GET' });
+          const poId = workflow.purchase_order && workflow.purchase_order.id ? workflow.purchase_order.id : 1;
+          const result = await requestJson(`/purchase-orders/${poId}/delivery`, { method: 'POST', body: JSON.stringify({ status: 'delivered', updated_by: 'demo-user', notes: 'Delivered during the local demo.' }) });
+          setStatus('Delivery updated.');
+          responseBox.textContent = JSON.stringify(result, null, 2);
+        } catch (error) { setStatus(error.message); }
+      });
+
+      document.getElementById('seedDemoBtn').addEventListener('click', async () => {
+        try {
+          const result = await requestJson('/demo/reset', { method: 'POST', body: '{}' });
+          responseBox.textContent = JSON.stringify(result, null, 2);
+          setStatus('Demo repository refreshed.');
+        } catch (error) { setStatus(error.message); }
+      });
+    </script>
+  </body>
+</html>

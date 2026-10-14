@@ -7,4 +7,11 @@ class ProcurementState(TypedDict, total=False):
     item_name: str
     quantity: int
     max_budget: Optional[float]
+    suppliers: list[dict[str, object]]
+    quotations: list[dict[str, object]]
+    selected_supplier: str
+    recommended_total: float
+    approval_required: bool
+    purchase_order_number: str
+    purchase_order_status: str
     status: str

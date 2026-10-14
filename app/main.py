@@ -7,8 +7,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from app.db import init_db
-from app.routes import approvals, cases, companies, delivery, po, products, quotes, suppliers
+from app.routes import (
+    approvals,
+    cases,
+    companies,
+    delivery,
+    demo,
+    po,
+    products,
+    quotes,
+    suppliers,
+)
 from app.services.langgraph_workflow import create_procurement_graph
+
 
 @asynccontextmanager
 async def lifespan(app):
@@ -57,6 +68,7 @@ app.include_router(quotes.router)
 app.include_router(approvals.router)
 app.include_router(po.router)
 app.include_router(delivery.router)
+app.include_router(demo.router)
 
 
 @app.get("/")

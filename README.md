@@ -58,6 +58,11 @@ offer is not eligible for internal sourcing. When a request is submitted,
 Procura searches the internal catalog first and searches externally only if
 there are no eligible in-budget internal offers.
 
+To add a repeatable catalog for a local demo, call `POST /demo/seed`. It
+idempotently creates or refreshes a reserved demo company, product, supplier,
+and priced offer; it does not delete existing cases or other catalog data. The
+endpoint is available only with SQLite outside production mode.
+
 1. Intake validates the company, product, positive quantity, budget, and
    currency; incomplete or invalid requests do not proceed to sourcing.
 2. Sourcing checks the company's internal supplier catalog first. If no

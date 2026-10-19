@@ -3,334 +3,900 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Procura AI Demo</title>
+    <meta name="theme-color" content="#f6f7fb" />
+    <title>Procura — Procurement workspace</title>
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
       :root {
-        --bg: #0f172a;
-        --panel: #111827;
-        --panel-2: #1f2937;
-        --accent: #38bdf8;
-        --accent-2: #14b8a6;
-        --warning: #f59e0b;
-        --danger: #ef4444;
-        --success: #22c55e;
-        --text: #e5e7eb;
-        --muted: #9ca3af;
+        color-scheme: light;
+        --ink: #1a2035;
+        --muted: #778096;
+        --line: #e9ebf2;
+        --canvas: #f6f7fb;
+        --paper: #fff;
+        --navy: #171a2c;
+        --navy-soft: #252941;
+        --purple: #7065e9;
+        --purple-dark: #5a50cc;
+        --purple-pale: #efedff;
+        --green: #20a779;
+        --green-pale: #e9f8f1;
+        --orange: #db8a32;
+        --orange-pale: #fff4e5;
+        --red: #d45d6a;
+        --red-pale: #fff0f1;
+        --shadow: 0 12px 34px rgba(29, 36, 65, .055);
+        font-family: "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
+
       * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: Arial, sans-serif;
-        background: linear-gradient(135deg, #0f172a, #111827);
-        color: var(--text);
+      body { margin: 0; background: var(--canvas); color: var(--ink); font-size: 14px; }
+      button, input, select, textarea { font: inherit; }
+      button { cursor: pointer; }
+      button:disabled { cursor: wait; opacity: .58; }
+      .app { min-height: 100vh; }
+      .sidebar {
+        position: fixed; inset: 0 auto 0 0; z-index: 5; display: flex; width: 252px;
+        flex-direction: column; padding: 25px 15px 18px; color: #fff; background: var(--navy);
       }
-      .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 24px;
+      .brand { display: flex; align-items: center; gap: 12px; padding: 0 12px 34px; }
+      .brand-mark {
+        display: grid; width: 39px; height: 39px; place-items: center; border-radius: 13px;
+        background: linear-gradient(145deg, #8e83ff, #5a50cc); box-shadow: 0 7px 18px #5f54d455;
       }
+      .brand-mark svg { width: 22px; height: 22px; }
+      .brand-name { font: 800 19px Manrope, sans-serif; letter-spacing: -.7px; }
+      .brand-sub { margin-top: 2px; color: #9da3bb; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+      .workspace-label { padding: 0 12px 11px; color: #858ba5; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+      .nav { display: grid; gap: 5px; }
+      .nav-link {
+        display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px;
+        border: 0; border-radius: 10px; color: #b7bbce; background: transparent; text-align: left;
+        transition: background .18s, color .18s;
+      }
+      .nav-link:hover { color: #fff; background: #ffffff0d; }
+      .nav-link.active { color: #fff; background: #7065e92b; box-shadow: inset 3px 0 #938aff; }
+      .nav-link svg { width: 18px; height: 18px; flex: none; opacity: .9; }
+      .nav-count { margin-left: auto; min-width: 21px; padding: 2px 6px; border-radius: 20px; background: #ffffff13; color: #c9cce0; text-align: center; font-size: 11px; }
+      .sidebar-bottom { margin-top: auto; }
+      .ai-status {
+        margin: 0 4px 16px; padding: 14px; border: 1px solid #ffffff12; border-radius: 13px;
+        background: linear-gradient(145deg, #272b48, #20243b);
+      }
+      .ai-status-head { display: flex; align-items: center; gap: 8px; color: #eeeaff; font-weight: 700; }
+      .spark { display: inline-grid; width: 23px; height: 23px; place-items: center; border-radius: 7px; color: #c7c0ff; background: #7268e533; }
+      .ai-status p { margin: 9px 0 0; color: #a9aec2; font-size: 11px; line-height: 1.6; }
+      .profile { display: flex; align-items: center; gap: 10px; padding: 14px 8px 0; border-top: 1px solid #ffffff15; }
+      .avatar { display: grid; width: 34px; height: 34px; flex: none; place-items: center; border-radius: 50%; color: #eeeaff; background: #7369e5; font-weight: 700; }
+      .profile strong { display: block; color: #f3f4fa; font-size: 12px; }
+      .profile small { color: #9399b1; font-size: 10px; }
+      .main { min-height: 100vh; margin-left: 252px; }
       .topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 24px;
+        position: sticky; top: 0; z-index: 4; display: flex; min-height: 72px; align-items: center;
+        justify-content: space-between; padding: 0 38px; border-bottom: 1px solid var(--line);
+        background: #ffffffeb; backdrop-filter: blur(16px);
       }
-      h1 { margin: 0; }
-      .grid { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-      .card {
-        background: rgba(17, 24, 39, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        border-radius: 12px;
-        padding: 18px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      .crumb { color: var(--muted); font-size: 12px; }
+      .crumb b { color: var(--ink); font-weight: 600; }
+      .top-actions { display: flex; align-items: center; gap: 12px; }
+      .connection { display: flex; align-items: center; gap: 7px; margin-right: 5px; color: var(--muted); font-size: 11px; }
+      .connection-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px var(--green-pale); }
+      .connection.offline .connection-dot { background: var(--red); box-shadow: 0 0 0 3px var(--red-pale); }
+      .icon-button { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid var(--line); border-radius: 10px; color: #606a81; background: white; }
+      .icon-button svg { width: 16px; height: 16px; }
+      .content { width: min(1480px, 100%); margin: 0 auto; padding: 30px 38px 48px; }
+      .page { display: none; animation: fadein .22s ease; }
+      .page.active { display: block; }
+      @keyframes fadein { from { opacity: .45; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin: 2px 0 24px; }
+      .eyebrow { margin: 0 0 7px; color: var(--purple); font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+      h1, h2, h3, p { margin-top: 0; }
+      h1, h2, h3 { font-family: Manrope, "DM Sans", sans-serif; }
+      h1 { margin-bottom: 7px; font-size: clamp(24px, 3vw, 31px); letter-spacing: -1.15px; }
+      .page-heading p { margin-bottom: 0; color: var(--muted); font-size: 13px; }
+      .button {
+        display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 8px;
+        padding: 0 14px; border: 1px solid transparent; border-radius: 9px; color: #fff;
+        background: var(--purple); box-shadow: 0 4px 10px #7065e926; font-size: 12px; font-weight: 700;
+        transition: transform .15s, background .15s, box-shadow .15s;
       }
-      form { display: grid; gap: 12px; }
-      label { display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
-      input, select, button, textarea {
-        width: 100%;
-        padding: 10px 12px;
-        border-radius: 8px;
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        background: rgba(15, 23, 42, 0.8);
-        color: var(--text);
+      .button:hover { transform: translateY(-1px); background: var(--purple-dark); box-shadow: 0 7px 16px #7065e933; }
+      .button svg { width: 15px; height: 15px; }
+      .button.secondary { border-color: var(--line); color: #555e74; background: #fff; box-shadow: none; }
+      .button.secondary:hover { color: var(--purple); border-color: #d9d5ff; background: #fbfaff; }
+      .button.soft { color: var(--purple-dark); background: var(--purple-pale); box-shadow: none; }
+      .button.soft:hover { background: #e5e1ff; }
+      .button.danger { color: #bd4c5b; background: var(--red-pale); box-shadow: none; }
+      .button.small { min-height: 30px; padding: 0 10px; border-radius: 7px; font-size: 11px; }
+      .button:focus-visible, .nav-link:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #7065e955; outline-offset: 2px; }
+      .hero {
+        position: relative; display: grid; min-height: 204px; grid-template-columns: minmax(0, 1fr) minmax(180px, 32%);
+        align-items: center; gap: 22px; overflow: hidden; margin-bottom: 19px; padding: 31px 34px;
+        border-radius: 17px; color: #fff; background:
+          radial-gradient(circle at 83% 20%, #a9a0ff44, transparent 26%),
+          radial-gradient(circle at 73% 120%, #6258e877, transparent 35%),
+          linear-gradient(110deg, #29254f, #48428d 58%, #6359bb);
+        box-shadow: 0 14px 32px #3d367a24;
       }
-      button {
-        cursor: pointer;
-        font-weight: 700;
-        background: linear-gradient(90deg, var(--accent), var(--accent-2));
-        color: #082f49;
-        border: none;
+      .hero::after { position: absolute; right: 26%; bottom: -105px; width: 230px; height: 230px; border: 1px solid #ffffff17; border-radius: 50%; content: ""; box-shadow: 0 0 0 25px #ffffff08, 0 0 0 52px #ffffff05; }
+      .hero-copy { position: relative; z-index: 1; max-width: 560px; }
+      .hero .eyebrow { color: #cbc6ff; }
+      .hero h2 { margin: 0 0 9px; font-size: clamp(22px, 3vw, 30px); letter-spacing: -.9px; }
+      .hero p { max-width: 510px; margin: 0 0 20px; color: #dedcff; font-size: 12px; line-height: 1.7; }
+      .hero .button { color: #393272; background: #fff; box-shadow: 0 6px 18px #17133128; }
+      .hero .button:hover { background: #f4f2ff; }
+      .hero-art { position: relative; z-index: 1; display: grid; place-items: center; min-height: 138px; }
+      .orbit { position: relative; display: grid; width: 132px; height: 132px; place-items: center; border: 1px solid #ffffff38; border-radius: 50%; background: #ffffff0c; box-shadow: 0 0 0 14px #ffffff08; }
+      .orbit::before, .orbit::after { position: absolute; border: 1px solid #ffffff25; border-radius: 50%; content: ""; }
+      .orbit::before { inset: 15px; } .orbit::after { inset: 31px; }
+      .orbit-core { display: grid; width: 53px; height: 53px; place-items: center; border-radius: 17px; color: white; background: linear-gradient(145deg, #a69bff, #7468e8); box-shadow: 0 7px 28px #18123c66; }
+      .orbit-core svg { width: 26px; height: 26px; }
+      .orbit-dot { position: absolute; width: 10px; height: 10px; border: 2px solid #6158b7; border-radius: 50%; background: #e8e4ff; box-shadow: 0 0 14px #fff9; }
+      .orbit-dot.one { top: 10px; right: 32px; } .orbit-dot.two { bottom: 19px; left: 9px; width: 7px; height: 7px; }
+      .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+      .stat-card { display: flex; min-height: 105px; align-items: flex-start; justify-content: space-between; padding: 17px 18px; border: 1px solid var(--line); border-radius: 13px; background: var(--paper); box-shadow: var(--shadow); }
+      .stat-label { color: var(--muted); font-size: 11px; }
+      .stat-number { margin-top: 10px; font: 800 25px Manrope, sans-serif; letter-spacing: -.7px; }
+      .stat-foot { margin-top: 4px; color: #9ba2b3; font-size: 10px; }
+      .stat-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; color: var(--purple); background: var(--purple-pale); }
+      .stat-icon.green { color: var(--green); background: var(--green-pale); }
+      .stat-icon.orange { color: var(--orange); background: var(--orange-pale); }
+      .stat-icon svg { width: 17px; height: 17px; }
+      .grid-two { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(270px, .9fr); gap: 18px; margin-bottom: 18px; }
+      .card { min-width: 0; border: 1px solid var(--line); border-radius: 13px; background: var(--paper); box-shadow: var(--shadow); }
+      .card-pad { padding: 19px 20px; }
+      .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+      .card-title { margin: 0; font: 700 14px Manrope, sans-serif; letter-spacing: -.2px; }
+      .card-caption { margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+      .tag { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border-radius: 20px; color: #5e56c7; background: var(--purple-pale); font-size: 10px; font-weight: 700; white-space: nowrap; }
+      .tag.green { color: #16845f; background: var(--green-pale); }
+      .tag.orange { color: #ae681d; background: var(--orange-pale); }
+      .tag.red { color: #bb4d59; background: var(--red-pale); }
+      .table-wrap { width: 100%; overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; text-align: left; }
+      th { padding: 10px 9px; border-bottom: 1px solid var(--line); color: #979daf; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+      td { padding: 12px 9px; border-bottom: 1px solid #f0f1f5; color: #586177; font-size: 11px; vertical-align: middle; }
+      tbody tr:last-child td { border-bottom: 0; }
+      td strong { color: var(--ink); font-weight: 600; }
+      .table-id { color: #746ae1; font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .row-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+      .empty { display: grid; min-height: 130px; place-items: center; padding: 20px; color: #9198aa; font-size: 11px; text-align: center; }
+      .empty-icon { display: grid; width: 40px; height: 40px; place-items: center; margin: 0 auto 8px; border-radius: 13px; color: #8279e8; background: #f1efff; }
+      .empty-icon svg { width: 18px; height: 18px; }
+      .step-list { display: grid; gap: 0; }
+      .step-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #f0f1f5; }
+      .step-row:last-child { border-bottom: 0; }
+      .step-number { display: grid; width: 24px; height: 24px; place-items: center; border: 1px solid #e7e8ef; border-radius: 8px; color: #9299ab; font-size: 10px; font-weight: 700; }
+      .step-number.complete { border-color: #d4f0e4; color: var(--green); background: var(--green-pale); }
+      .step-number.active { border-color: #dedaff; color: var(--purple); background: var(--purple-pale); }
+      .step-copy strong { display: block; color: #343c52; font-size: 11px; font-weight: 600; }
+      .step-copy small { display: block; margin-top: 3px; color: #a0a6b5; font-size: 10px; }
+      .step-status { color: #a0a6b5; font-size: 9px; }
+      .step-status.complete { color: var(--green); font-weight: 700; }
+      .mini-bars { display: flex; height: 110px; align-items: flex-end; gap: 10px; padding: 6px 5px 0; border-bottom: 1px solid var(--line); }
+      .mini-bar { position: relative; flex: 1; min-width: 15px; border-radius: 5px 5px 0 0; background: linear-gradient(180deg, #988fff, #7065e9); opacity: .8; }
+      .mini-bar:hover { opacity: 1; }
+      .mini-bar span { position: absolute; top: calc(100% + 7px); left: 50%; color: #9aa0b0; font-size: 9px; transform: translateX(-50%); }
+      .bar-labels { display: flex; justify-content: space-between; padding: 15px 4px 0; color: #a1a7b6; font-size: 9px; }
+      .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+      .field { display: grid; gap: 6px; }
+      .field.full { grid-column: 1 / -1; }
+      .field label { color: #646e83; font-size: 10px; font-weight: 600; }
+      input, select, textarea {
+        width: 100%; min-height: 39px; padding: 9px 11px; border: 1px solid #e4e6ed; border-radius: 8px;
+        outline: 0; color: var(--ink); background: #fff; font-size: 11px; transition: border .15s, box-shadow .15s;
       }
-      button.secondary { background: rgba(148,163,184,0.2); color: var(--text); }
-      button.warning { background: linear-gradient(90deg, #f59e0b, #f97316); color: #111827; }
-      .status {
-        margin-top: 12px;
-        padding: 10px 12px;
-        border-radius: 8px;
-        background: rgba(56, 189, 248, 0.08);
-        color: var(--text);
-        white-space: pre-wrap;
+      textarea { min-height: 78px; resize: vertical; }
+      input::placeholder, textarea::placeholder { color: #a8adba; }
+      input:focus, select:focus, textarea:focus { border-color: #a49cff; box-shadow: 0 0 0 3px #7065e91c; }
+      .form-actions { display: flex; align-items: center; gap: 10px; margin-top: 15px; }
+      .form-help { color: #969daf; font-size: 10px; line-height: 1.5; }
+      .form-section { margin-bottom: 17px; }
+      .form-section:last-child { margin-bottom: 0; }
+      .form-section .card-pad { padding: 20px; }
+      .catalog-forms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+      .catalog-forms .card:last-child { grid-column: 1/-1; }
+      .notice { margin: 0 0 15px; padding: 10px 12px; border: 1px solid #e6e2ff; border-radius: 9px; color: #645bc5; background: #f7f6ff; font-size: 10px; line-height: 1.6; }
+      .request-card, .approval-card, .order-card { margin-bottom: 10px; padding: 14px; border: 1px solid #eceef4; border-radius: 10px; background: #fff; }
+      .request-card:last-child, .approval-card:last-child, .order-card:last-child { margin-bottom: 0; }
+      .request-head, .approval-head, .order-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+      .request-card p, .approval-card p, .order-card p { margin: 8px 0 0; color: #81899c; font-size: 10px; line-height: 1.6; }
+      .request-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 10px; color: #9299aa; font-size: 9px; }
+      .detail-box { margin-top: 13px; padding: 12px; border-radius: 9px; color: #666d80; background: #f8f8fc; font-size: 10px; }
+      .detail-box pre { margin: 8px 0 0; color: #555d74; font: 10px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .case-list { display: grid; gap: 11px; }
+      .case-card { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: var(--shadow); }
+      .case-main { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(85px, .55fr)) auto; align-items: center; gap: 12px; padding: 15px 17px; }
+      .case-product { display: flex; align-items: center; gap: 11px; min-width: 0; }
+      .product-mark { display: grid; width: 36px; height: 36px; flex: none; place-items: center; border-radius: 11px; color: var(--purple); background: var(--purple-pale); }
+      .product-mark svg { width: 17px; height: 17px; }
+      .case-product strong { display: block; overflow: hidden; color: #2d354a; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+      .case-product small { display: block; margin-top: 4px; color: #989eae; font: 9px ui-monospace, monospace; }
+      .case-metric span { display: block; color: #a0a5b3; font-size: 9px; }
+      .case-metric strong { display: block; margin-top: 5px; color: #4a5369; font-size: 11px; }
+      .case-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+      .case-details { padding: 15px 18px 18px; border-top: 1px solid #eff0f5; background: #fcfcfe; }
+      .progress-track { display: grid; grid-template-columns: repeat(5, 1fr); margin: 2px 4px 18px; }
+      .progress-step { position: relative; color: #9ba1b0; font-size: 9px; text-align: center; }
+      .progress-step::before { display: block; width: 12px; height: 12px; margin: 0 auto 6px; border: 2px solid #e4e6ed; border-radius: 50%; background: #fff; content: ""; }
+      .progress-step:not(:last-child)::after { position: absolute; top: 5px; left: calc(50% + 8px); width: calc(100% - 16px); height: 2px; background: #e7e8ef; content: ""; }
+      .progress-step.done::before { border-color: var(--green); background: var(--green); box-shadow: inset 0 0 0 2px white; }
+      .progress-step.done:not(:last-child)::after { background: #a8e3c9; }
+      .progress-step.current { color: var(--purple); font-weight: 700; }
+      .progress-step.current::before { border-color: var(--purple); box-shadow: 0 0 0 3px #7065e91c; }
+      .workflow-info { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+      .workflow-info > div { padding: 11px; border: 1px solid #eeeef4; border-radius: 8px; background: white; }
+      .workflow-info small { display: block; color: #969cad; font-size: 9px; }
+      .workflow-info strong { display: block; margin-top: 5px; color: #434b60; font-size: 10px; }
+      .toast {
+        position: fixed; right: 24px; bottom: 24px; z-index: 20; display: flex; max-width: min(420px, calc(100vw - 32px));
+        align-items: flex-start; gap: 10px; padding: 13px 16px; border: 1px solid #dcefe7; border-radius: 11px;
+        color: #267556; background: #f2fbf7; box-shadow: 0 12px 35px #1d28451c; font-size: 12px;
+        opacity: 0; pointer-events: none; transform: translateY(8px); transition: .2s;
       }
-      pre {
-        background: rgba(15, 23, 42, 0.8);
-        color: #dbeafe;
-        border-radius: 8px;
-        padding: 12px;
-        overflow: auto;
+      .toast.show { opacity: 1; transform: none; }
+      .toast.error { border-color: #f1d5d8; color: #af4c58; background: #fff7f7; }
+      .toast svg { width: 16px; height: 16px; flex: none; }
+      .mobile-menu { display: none; }
+      .danger-link { border: 0; color: #a1a6b4; background: none; font-size: 10px; }
+      .danger-link:hover { color: var(--red); }
+      @media (max-width: 1180px) {
+        .content { padding-right: 25px; padding-left: 25px; }
+        .topbar { padding-right: 25px; padding-left: 25px; }
+        .case-main { grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(72px, .5fr)); }
+        .case-actions { grid-column: 1/-1; justify-content: flex-start; padding-left: 47px; }
       }
-      .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; }
-      .badge.ok { background: rgba(34, 197, 94, 0.2); color: #bbf7d0; }
-      .badge.warn { background: rgba(245, 158, 11, 0.2); color: #fde68a; }
-      .badge.error { background: rgba(239, 68, 68, 0.2); color: #fecaca; }
+      @media (max-width: 900px) {
+        .sidebar { width: 68px; align-items: center; padding: 17px 8px; }
+        .brand { padding: 0 0 28px; }
+        .brand-copy, .workspace-label, .nav-label, .nav-count, .ai-status, .profile-copy { display: none; }
+        .nav { width: 100%; }
+        .nav-link { justify-content: center; padding: 12px 8px; }
+        .profile { justify-content: center; width: 100%; padding: 13px 0 0; }
+        .main { margin-left: 68px; }
+        .grid-two { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 650px) {
+        .topbar { min-height: 62px; padding: 0 15px; }
+        .content { padding: 22px 14px 35px; }
+        .page-heading { align-items: flex-start; }
+        .page-heading > .button { min-height: 34px; padding: 0 10px; font-size: 10px; }
+        .connection { display: none; }
+        .hero { min-height: 190px; grid-template-columns: 1fr; padding: 24px; }
+        .hero-art { position: absolute; right: -27px; bottom: -22px; opacity: .45; transform: scale(.8); }
+        .hero-copy { max-width: 85%; }
+        .hero h2 { font-size: 22px; }
+        .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+        .stat-card { min-height: 92px; padding: 13px; }
+        .stat-number { font-size: 22px; }
+        .catalog-forms { grid-template-columns: 1fr; }
+        .catalog-forms .card:last-child { grid-column: auto; }
+        .form-grid { grid-template-columns: 1fr; }
+        .field.full { grid-column: auto; }
+        .case-main { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 13px; }
+        .case-metric { display: none; }
+        .case-actions { grid-column: 1/-1; padding-left: 0; }
+        .workflow-info { grid-template-columns: 1fr; }
+        .progress-step { font-size: 8px; }
+        .card-pad { padding: 15px; }
+        .top-actions { gap: 7px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+      }
     </style>
   </head>
   <body>
-    <div class="container">
-      <div class="topbar">
-        <h1>Procura AI Demo</h1>
-        <button class="secondary" id="seedDemoBtn">Reset demo data</button>
-      </div>
-
-      <div class="grid">
-        <div class="card">
-          <h2>Company setup</h2>
-          <form id="companyForm">
-            <label>Company name<input name="name" value="Northwind Labs" /></label>
-            <button type="submit">Create company</button>
-          </form>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 7.2 12 3l8 4.2v9.6L12 21l-8-4.2V7.2Z" stroke="white" stroke-width="1.6"/><path d="m8 12 2.5 2.5L16.5 8" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="brand-copy"><div class="brand-name">procura</div><div class="brand-sub">intelligent procurement</div></div>
         </div>
-
-        <div class="card">
-          <h2>Product setup</h2>
-          <form id="productForm">
-            <label>Company ID<input name="company_id" value="1" /></label>
-            <label>Product name<input name="name" value="Laptop Workstation" /></label>
-            <label>Category<input name="category" value="IT Equipment" /></label>
-            <label>Unit<input name="unit" value="unit" /></label>
-            <button type="submit">Create product</button>
-          </form>
+        <div class="workspace-label">Workspace</div>
+        <nav class="nav" aria-label="Main navigation">
+          <button class="nav-link active" data-page="overview">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.7"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.7"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.7"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.7"/></svg><span class="nav-label">Overview</span>
+          </button>
+          <button class="nav-link" data-page="requests">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M7 3.8h7l4 4V20a1 1 0 0 1-1 1H7a2 2 0 0 1-2-2V5.8a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.7"/><path d="M14 4v4h4M8.5 12h7M8.5 16h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span class="nav-label">Requests</span><span class="nav-count" id="requestCount">0</span>
+          </button>
+          <button class="nav-link" data-page="catalog">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16v13H4zM3 4h18v3H3zM9 11h6M9 15h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label">Supplier catalog</span>
+          </button>
+          <button class="nav-link" data-page="approvals">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5 20 7v5c0 4.6-3.1 7.3-8 9-4.9-1.7-8-4.4-8-9V7l8-3.5Z" stroke="currentColor" stroke-width="1.7"/><path d="m8.5 12.3 2.2 2.2 4.8-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label">Approvals</span><span class="nav-count" id="approvalCount">0</span>
+          </button>
+          <button class="nav-link" data-page="orders">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v15H4zM8 3v4M16 3v4M4 10h16M8 14h3M8 17h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-label">Orders & delivery</span>
+          </button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="ai-status">
+            <div class="ai-status-head"><span class="spark">✦</span> AI assistant <span class="tag green" style="margin-left:auto;padding:3px 6px;font-size:8px">READY</span></div>
+            <p>Request parsing is ready. Supplier sourcing and approvals stay in your control.</p>
+          </div>
+          <div class="profile">
+            <div class="avatar">P</div>
+            <div class="profile-copy"><strong>Procurement team</strong><small>Local demo workspace</small></div>
+          </div>
         </div>
+      </aside>
 
-        <div class="card">
-          <h2>Supplier setup</h2>
-          <form id="supplierForm">
-            <label>Name<input name="name" value="Demo Supplier Co." /></label>
-            <label>Email<input name="contact_email" value="demo@example.com" /></label>
-            <label>Country<input name="country" value="US" /></label>
-            <label>Reliability score<input type="number" step="0.01" name="reliability_score" value="0.93" /></label>
-            <label>Verification score<input type="number" step="0.01" name="verification_score" value="0.89" /></label>
-            <button type="submit">Create supplier</button>
-          </form>
+      <main class="main">
+        <header class="topbar">
+          <div class="crumb">Workspace <span style="padding:0 7px;color:#b3b7c3">/</span> <b id="crumbTitle">Overview</b></div>
+          <div class="top-actions">
+            <div class="connection offline" id="connection"><span class="connection-dot"></span><span id="connectionLabel">Connecting…</span></div>
+            <button class="icon-button" id="refreshBtn" aria-label="Refresh dashboard" title="Refresh dashboard">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M20 7v5h-5M4 17v-5h5M5.6 9A7 7 0 0 1 18 6l2 2M4 16l2 2a7 7 0 0 0 12.4-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="button" id="topCreateBtn"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> New request</button>
+          </div>
+        </header>
+
+        <div class="content">
+          <section class="page active" id="page-overview">
+            <div class="page-heading">
+              <div><p class="eyebrow" id="todayLabel">PROCUREMENT INTELLIGENCE</p><h1>Good to see you.</h1><p>Here’s what’s happening across your procurement workspace.</p></div>
+              <button class="button secondary" id="resetBtn" title="Clears the local demo database and recreates sample records">↻ Reset demo workspace</button>
+            </div>
+            <section class="hero">
+              <div class="hero-copy">
+                <p class="eyebrow">YOUR PROCUREMENT COPILOT</p>
+                <h2>From request to ready-to-buy.</h2>
+                <p>Turn a plain-language need into a structured request, compare supplier options, and keep every purchase moving—with a human in control.</p>
+                <button class="button" data-go="requests">Create a procurement request <span aria-hidden="true">→</span></button>
+              </div>
+              <div class="hero-art" aria-hidden="true"><div class="orbit"><span class="orbit-dot one"></span><span class="orbit-dot two"></span><div class="orbit-core"><svg viewBox="0 0 24 24" fill="none"><path d="m12 2 1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7L12 2ZM19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7L19 15Z" fill="currentColor"/></svg></div></div></div>
+            </section>
+            <div class="stats-grid" id="statsGrid"></div>
+            <div class="grid-two">
+              <section class="card card-pad">
+                <div class="card-head"><div><h2 class="card-title">Procurement pipeline</h2><p class="card-caption">Live status of requests moving through your workflow</p></div><button class="button secondary small" data-go="requests">View requests <span aria-hidden="true">→</span></button></div>
+                <div class="table-wrap" id="overviewCases"></div>
+              </section>
+              <section class="card card-pad">
+                <div class="card-head"><div><h2 class="card-title">Workflow at a glance</h2><p class="card-caption">A transparent, human-reviewed buying journey</p></div><span class="tag">AI-assisted</span></div>
+                <div class="step-list">
+                  <div class="step-row"><span class="step-number complete">1</span><div class="step-copy"><strong>Request intake</strong><small>Parse needs & validate details</small></div><span class="step-status complete">READY</span></div>
+                  <div class="step-row"><span class="step-number active">2</span><div class="step-copy"><strong>Source & compare</strong><small>Find suitable catalog offers</small></div><span class="step-status">NEXT</span></div>
+                  <div class="step-row"><span class="step-number">3</span><div class="step-copy"><strong>Human approval</strong><small>You decide before purchase</small></div><span class="step-status">REVIEW</span></div>
+                  <div class="step-row"><span class="step-number">4</span><div class="step-copy"><strong>Order & delivery</strong><small>Track the final mile</small></div><span class="step-status">FULFILL</span></div>
+                </div>
+              </section>
+            </div>
+            <div class="grid-two">
+              <section class="card card-pad">
+                <div class="card-head"><div><h2 class="card-title">Spend overview</h2><p class="card-caption">Requested budget by procurement case</p></div><span class="tag green" id="spendCurrency">Workspace</span></div>
+                <div id="spendChart"></div>
+              </section>
+              <section class="card card-pad">
+                <div class="card-head"><div><h2 class="card-title">AI request intake</h2><p class="card-caption">Describe what your team needs in plain language</p></div><span class="tag">✦ AI assist</span></div>
+                <form id="quickRequestForm">
+                  <div class="field"><label for="quickRequest">What are you looking to procure?</label><textarea id="quickRequest" minlength="3" required placeholder="For example: We need 5 laptop workstations for the design team, budget up to $7,000."></textarea></div>
+                  <div class="form-actions"><button class="button" type="submit">Parse request <span aria-hidden="true">→</span></button><span class="form-help">Extracts item, quantity, and budget</span></div>
+                </form>
+                <div id="quickRequestResult"></div>
+              </section>
+            </div>
+            <section class="card card-pad">
+              <div class="card-head"><div><h2 class="card-title">Latest activity</h2><p class="card-caption">Recent procurement cases and where they stand</p></div></div>
+              <div class="case-list" id="overviewCaseList"></div>
+            </section>
+          </section>
+
+          <section class="page" id="page-requests">
+            <div class="page-heading"><div><p class="eyebrow">REQUEST MANAGEMENT</p><h1>Requests</h1><p>Capture a need, structure it, and follow it through to delivery.</p></div></div>
+            <div class="grid-two">
+              <section class="card card-pad">
+                <div class="card-head"><div><h2 class="card-title">AI-assisted intake</h2><p class="card-caption">Describe your need naturally. The parser extracts the key details.</p></div><span class="tag">✦ AI assist</span></div>
+                <form id="requestForm"><div class="field"><label for="requestText">Request description</label><textarea id="requestText" minlength="3" required placeholder="I need 10 laptops under $15,000 for the operations team."></textarea></div><div class="form-actions"><button class="button" type="submit">Analyze request <span aria-hidden="true">→</span></button><span class="form-help">You’ll review parsed details before sourcing.</span></div></form>
+                <div id="requestResult"></div>
+              </section>
+              <section class="card card-pad">
+                <div class="card-head"><div><h2 class="card-title">Create structured case</h2><p class="card-caption">Start sourcing from your registered product catalog.</p></div></div>
+                <form id="caseForm" class="form-grid">
+                  <div class="field"><label for="caseCompany">Company</label><select id="caseCompany" name="company_id" required></select></div>
+                  <div class="field"><label for="caseProduct">Product</label><select id="caseProduct" name="product_id" required></select></div>
+                  <div class="field"><label for="caseRequester">Requester</label><input id="caseRequester" name="requester_name" required minlength="2" placeholder="Your name"></div>
+                  <div class="field"><label for="caseQuantity">Quantity</label><input id="caseQuantity" name="quantity" type="number" min="1" value="1" required></div>
+                  <div class="field"><label for="caseBudget">Maximum budget</label><input id="caseBudget" name="budget" type="number" min="0.01" step="any" placeholder="e.g. 7000" required></div>
+                  <div class="field"><label for="caseCurrency">Currency</label><select id="caseCurrency" name="currency"><option>USD</option><option>INR</option><option>EUR</option><option>GBP</option><option>AED</option><option>JPY</option><option>CAD</option><option>AUD</option></select></div>
+                  <div class="field full"><label for="caseNotes">Purpose or notes <span style="font-weight:400;color:#9ba1af">(optional)</span></label><textarea id="caseNotes" name="notes" placeholder="Add context to help reviewers understand the request."></textarea></div>
+                  <div class="field full"><button class="button" type="submit">Create case & begin sourcing <span aria-hidden="true">→</span></button></div>
+                </form>
+              </section>
+            </div>
+            <section class="card card-pad" style="margin-top:17px">
+              <div class="card-head"><div><h2 class="card-title">Procurement cases</h2><p class="card-caption">Select actions to advance each case through the workflow.</p></div><span class="tag" id="caseListCount">0 cases</span></div>
+              <div class="case-list" id="caseList"></div>
+            </section>
+            <section class="card card-pad" style="margin-top:17px">
+              <div class="card-head"><div><h2 class="card-title">Parsed requests</h2><p class="card-caption">AI intake results are captured here for review.</p></div></div>
+              <div id="requestHistory"></div>
+            </section>
+          </section>
+
+          <section class="page" id="page-catalog">
+            <div class="page-heading"><div><p class="eyebrow">SUPPLIER NETWORK</p><h1>Supplier catalog</h1><p>Manage your internal suppliers, products, and reference offers.</p></div></div>
+            <div class="catalog-forms">
+              <section class="card card-pad">
+                <div class="card-head"><div><h2 class="card-title">Add a company</h2><p class="card-caption">Create the organization cataloging its purchases.</p></div></div>
+                <form id="companyForm"><div class="field"><label for="companyName">Company name</label><input id="companyName" name="name" required minlength="2" placeholder="e.g. Northwind Labs"></div><div class="form-actions"><button class="button" type="submit">Create company</button></div></form>
+              </section>
+              <section class="card card-pad">
+                <div class="card-head"><div><h2 class="card-title">Add a product</h2><p class="card-caption">Create an item that can be requested and sourced.</p></div></div>
+                <form id="productForm" class="form-grid">
+                  <div class="field full"><label for="productCompany">Company</label><select id="productCompany" name="company_id" required></select></div>
+                  <div class="field"><label for="productName">Product name</label><input id="productName" name="name" required minlength="2" placeholder="Laptop workstation"></div>
+                  <div class="field"><label for="productCategory">Category</label><input id="productCategory" name="category" placeholder="IT equipment"></div>
+                  <div class="field full"><label for="productUnit">Unit</label><input id="productUnit" name="unit" value="unit"></div>
+                  <div class="field full"><button class="button" type="submit">Add product</button></div>
+                </form>
+              </section>
+              <section class="card card-pad">
+                <div class="card-head"><div><h2 class="card-title">Add a supplier</h2><p class="card-caption">Record a supplier and basic trust signals.</p></div></div>
+                <form id="supplierForm" class="form-grid">
+                  <div class="field full"><label for="supplierName">Supplier name</label><input id="supplierName" name="name" required minlength="2" placeholder="Acme Industrial Supply"></div>
+                  <div class="field"><label for="supplierEmail">Contact email</label><input id="supplierEmail" name="contact_email" type="email" placeholder="supplier@example.com"></div>
+                  <div class="field"><label for="supplierCountry">Country</label><input id="supplierCountry" name="country" value="US"></div>
+                  <div class="field"><label for="supplierReliability">Reliability score (0–1)</label><input id="supplierReliability" name="reliability_score" type="number" min="0" max="1" step=".01" value=".8"></div>
+                  <div class="field"><label for="supplierVerification">Verification score (0–1)</label><input id="supplierVerification" name="verification_score" type="number" min="0" max="1" step=".01" value=".8"></div>
+                  <div class="field full"><button class="button" type="submit">Add supplier</button></div>
+                </form>
+              </section>
+              <section class="card card-pad">
+                <div class="card-head"><div><h2 class="card-title">Add a supplier offer</h2><p class="card-caption">Priced offers are matched against product requests.</p></div></div>
+                <form id="offerForm" class="form-grid">
+                  <div class="field"><label for="offerSupplier">Supplier</label><select id="offerSupplier" name="supplier_id" required></select></div>
+                  <div class="field"><label for="offerProduct">Product</label><select id="offerProduct" name="product_id" required></select></div>
+                  <div class="field"><label for="offerPrice">Unit price</label><input id="offerPrice" name="price" type="number" min=".01" step="any" required placeholder="1200"></div>
+                  <div class="field"><label for="offerCurrency">Currency</label><select id="offerCurrency" name="currency"><option>USD</option><option>INR</option><option>EUR</option><option>GBP</option><option>AED</option><option>JPY</option><option>CAD</option><option>AUD</option></select></div>
+                  <div class="field"><label for="offerLead">Lead time (days)</label><input id="offerLead" name="lead_time_days" type="number" min="0" value="7"></div>
+                  <div class="field"><label for="offerInternal">Offer type</label><select id="offerInternal" name="is_internal"><option value="true">Internal catalog</option><option value="false">External offer</option></select></div>
+                  <div class="field full"><label for="offerSource">Source URL <span style="font-weight:400;color:#9ba1af">(optional)</span></label><input id="offerSource" name="source_url" type="url" placeholder="https://supplier.example/offer"></div>
+                  <div class="field full"><label for="offerEvidence">Price evidence <span style="font-weight:400;color:#9ba1af">(optional)</span></label><input id="offerEvidence" name="evidence_note" placeholder="Quote reference, catalog page, or note"></div>
+                  <div class="field full"><button class="button" type="submit">Save supplier offer</button></div>
+                </form>
+              </section>
+            </div>
+            <section class="card card-pad" style="margin-top:17px">
+              <div class="card-head"><div><h2 class="card-title">Catalog offers</h2><p class="card-caption">Supplier pricing available for sourcing.</p></div><span class="tag" id="offerCount">0 offers</span></div>
+              <div class="table-wrap" id="offerTable"></div>
+            </section>
+            <div class="grid-two" style="margin-top:17px">
+              <section class="card card-pad"><div class="card-head"><div><h2 class="card-title">Companies</h2><p class="card-caption">Organizations in this workspace</p></div></div><div id="companyList"></div></section>
+              <section class="card card-pad"><div class="card-head"><div><h2 class="card-title">Products & suppliers</h2><p class="card-caption">Items and vendors registered in your catalog</p></div></div><div id="catalogSummary"></div></section>
+            </div>
+          </section>
+
+          <section class="page" id="page-approvals">
+            <div class="page-heading"><div><p class="eyebrow">HUMAN-IN-THE-LOOP CONTROL</p><h1>Approvals</h1><p>Review procurement recommendations before a purchase order is created.</p></div></div>
+            <div class="notice">The system can organize requests and compare offers, but the purchase decision stays with your team. The requester cannot approve their own request.</div>
+            <section class="card card-pad"><div class="card-head"><div><h2 class="card-title">Waiting for your decision</h2><p class="card-caption">Cases at the approval stage appear here.</p></div><span class="tag orange" id="approvalPageCount">0 pending</span></div><div class="case-list" id="approvalList"></div></section>
+          </section>
+
+          <section class="page" id="page-orders">
+            <div class="page-heading"><div><p class="eyebrow">FULFILLMENT</p><h1>Orders & delivery</h1><p>Keep approved purchases visible through the last mile.</p></div></div>
+            <section class="card card-pad"><div class="card-head"><div><h2 class="card-title">Purchase orders</h2><p class="card-caption">Orders are created after an approval decision.</p></div><span class="tag" id="orderCount">0 orders</span></div><div id="orderList"></div></section>
+          </section>
+
+          <footer style="display:flex;justify-content:space-between;gap:12px;margin-top:25px;color:#a0a6b4;font-size:9px"><span>Procura · Local procurement workspace</span><span id="lastUpdated">Waiting for data…</span></footer>
         </div>
-
-        <div class="card">
-          <h2>Offer setup</h2>
-          <form id="offerForm">
-            <label>Supplier ID<input name="supplier_id" value="1" /></label>
-            <label>Product ID<input name="product_id" value="1" /></label>
-            <label>Price<input type="number" step="0.01" name="price" value="1200" /></label>
-            <label>Currency<select name="currency"><option>USD</option><option>EUR</option><option>GBP</option></select></label>
-            <label>Lead time days<input type="number" name="lead_time_days" value="7" /></label>
-            <label>Internal<select name="is_internal"><option value="true">Yes</option><option value="false">No</option></select></label>
-            <button type="submit">Create offer</button>
-          </form>
-        </div>
-
-        <div class="card">
-          <h2>Request intake</h2>
-          <form id="caseForm">
-            <label>Company ID<input name="company_id" value="1" /></label>
-            <label>Product ID<input name="product_id" value="1" /></label>
-            <label>Quantity<input type="number" name="quantity" value="5" /></label>
-            <label>Budget<input type="number" step="0.01" name="budget" value="7000" /></label>
-            <label>Currency<select name="currency"><option>USD</option><option>EUR</option><option>GBP</option></select></label>
-            <label>Requester<input name="requester_name" value="Alicia" /></label>
-            <label>Notes<textarea name="notes">Demo procurement case</textarea></label>
-            <button type="submit">Submit request</button>
-          </form>
-        </div>
-
-        <div class="card">
-          <h2>Workflow actions</h2>
-          <form id="workflowForm">
-            <label>Case ID<input name="case_id" value="1" /></label>
-            <button type="button" id="sourceBtn">Source suppliers</button>
-            <button type="button" id="evaluateBtn" class="secondary">Evaluate offers</button>
-            <button type="button" id="draftBtn" class="secondary">Generate RFQ draft</button>
-            <label>Approver<input id="approverName" value="Marcus" /></label>
-            <button type="button" id="approveBtn">Approve</button>
-            <button type="button" id="rejectBtn" class="warning">Reject</button>
-            <button type="button" id="deliveryBtn" class="secondary">Mark delivered</button>
-          </form>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top: 24px;">
-        <h2>Live workflow output</h2>
-        <div id="statusBox" class="status">Ready to start the local demo.</div>
-        <pre id="responseBox"></pre>
-      </div>
+      </main>
     </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"><svg viewBox="0 0 24 24" fill="none"><path d="m5 12 4 4L19 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="toastText"></span></div>
 
     <script>
-      const apiBase = '/';
-      const statusBox = document.getElementById('statusBox');
-      const responseBox = document.getElementById('responseBox');
-
-      function setStatus(message) {
-        statusBox.textContent = message;
-      }
-
-      async function requestJson(url, options = {}) {
-        const resp = await fetch(url, {
-          headers: { 'Content-Type': 'application/json' },
+      const API = window.location.origin;
+      const state = { companies: [], products: [], suppliers: [], offers: [], cases: [], requests: [], workflows: {} };
+      const $ = (selector, root = document) => root.querySelector(selector);
+      const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+      const icon = {
+        box: '<svg viewBox="0 0 24 24" fill="none"><path d="m4 7 8-4 8 4v10l-8 4-8-4V7Z" stroke="currentColor" stroke-width="1.7"/><path d="m4.5 7.3 7.5 4 7.5-4M12 12v8.5" stroke="currentColor" stroke-width="1.7"/></svg>',
+        people: '<svg viewBox="0 0 24 24" fill="none"><path d="M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM16 4.2a3.5 3.5 0 0 1 0 6.8M17 14.5a4 4 0 0 1 4 4V20" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+        shield: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3 20 6.5v5c0 4.8-3.1 7.5-8 9.5-4.9-2-8-4.7-8-9.5v-5L12 3Z" stroke="currentColor" stroke-width="1.7"/><path d="m8.5 12.2 2.2 2.2 4.8-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+        cash: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 6.5h15a2 2 0 0 1 2 2v10H5a2 2 0 0 1-2-2v-12a2 2 0 0 1 2-2h13v4M15 13.5h6M16 13.5a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        plus: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
+      };
+      const money = (amount, currency = 'USD') => {
+        const n = Number(amount || 0);
+        try { return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 0 }).format(n); }
+        catch { return `${currency} ${n.toLocaleString()}`; }
+      };
+      const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+      const titleCase = (value) => String(value || 'Unknown').replace(/[_-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+      async function api(path, options = {}) {
+        const response = await fetch(`${API}${path}`, {
           ...options,
+          headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) },
         });
-        const data = await resp.json().catch(() => ({}));
-        if (!resp.ok) {
-          throw new Error(data.detail || `Request failed with ${resp.status}`);
+        const raw = await response.text();
+        let data = {};
+        if (raw) {
+          try { data = JSON.parse(raw); }
+          catch { data = { detail: raw }; }
         }
+        if (!response.ok) throw new Error(data.detail || data.message || `Request failed (${response.status})`);
         return data;
       }
-
-      document.getElementById('companyForm').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const payload = Object.fromEntries(new FormData(event.target).entries());
-        try {
-          const result = await requestJson('/companies', { method: 'POST', body: JSON.stringify(payload) });
-          setStatus('Company created successfully.');
-          responseBox.textContent = JSON.stringify(result, null, 2);
-        } catch (error) {
-          setStatus(error.message);
+      function notify(message, error = false) {
+        const toast = $('#toast');
+        toast.classList.toggle('error', error);
+        $('#toastText').textContent = message;
+        toast.classList.add('show');
+        clearTimeout(notify.timer);
+        notify.timer = setTimeout(() => toast.classList.remove('show'), 4200);
+      }
+      function setBusy(button, busy, label) {
+        if (busy) {
+          button.dataset.label = button.innerHTML;
+          button.disabled = true;
+          button.innerHTML = `<span class="spinner" style="width:13px;height:13px;border:2px solid #ffffff66;border-top-color:white;border-radius:50%;display:inline-block;animation:spin .7s linear infinite"></span> ${label || 'Working…'}`;
+        } else {
+          button.disabled = false;
+          button.innerHTML = button.dataset.label || button.innerHTML;
         }
-      });
-
-      document.getElementById('productForm').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const payload = Object.fromEntries(new FormData(event.target).entries());
-        payload.company_id = Number(payload.company_id);
+      }
+      async function loadWorkspace() {
+        const refresh = $('#refreshBtn');
+        refresh.style.opacity = '.55';
         try {
-          const result = await requestJson('/products', { method: 'POST', body: JSON.stringify(payload) });
-          setStatus('Product saved.');
-          responseBox.textContent = JSON.stringify(result, null, 2);
+          const [health, companies, products, suppliers, offers, cases, requests] = await Promise.all([
+            api('/health'), api('/companies'), api('/products'), api('/suppliers'), api('/offers'), api('/cases'), api('/requests?limit=30'),
+          ]);
+          state.companies = companies.items || [];
+          state.products = products.items || [];
+          state.suppliers = suppliers.items || [];
+          state.offers = offers.items || [];
+          state.cases = cases.items || [];
+          state.requests = requests.requests || [];
+          const summaries = await Promise.all(state.cases.map(async (item) => {
+            try { return [item.id, await api(`/cases/${item.id}/workflow`)]; }
+            catch { return [item.id, null]; }
+          }));
+          state.workflows = Object.fromEntries(summaries);
+          $('#connection').classList.remove('offline');
+          $('#connectionLabel').textContent = health.status === 'healthy' ? 'API connected' : 'API available';
+          render();
+          $('#lastUpdated').textContent = `Synced ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
         } catch (error) {
-          setStatus(error.message);
+          $('#connection').classList.add('offline');
+          $('#connectionLabel').textContent = 'API disconnected';
+          notify(`Could not load workspace: ${error.message}`, true);
+        } finally { refresh.style.opacity = ''; }
+      }
+      function selectOptions(items, placeholder, label = 'name') {
+        const options = items.map((item) => `<option value="${item.id}">${escapeHtml(item[label])} · #${item.id}</option>`).join('');
+        return `<option value="">${placeholder}</option>${options}`;
+      }
+      function populateSelects() {
+        $('#caseCompany').innerHTML = selectOptions(state.companies, 'Choose a company');
+        $('#productCompany').innerHTML = selectOptions(state.companies, 'Choose a company');
+        const productOptions = selectOptions(state.products, 'Choose a product');
+        $('#caseProduct').innerHTML = productOptions;
+        $('#offerProduct').innerHTML = productOptions;
+        $('#offerSupplier').innerHTML = selectOptions(state.suppliers, 'Choose a supplier');
+      }
+      function statusTag(status) {
+        const key = String(status || '').toLowerCase();
+        const cls = /approved|po_created|delivered|complete|parsed/.test(key) ? 'green' :
+          /awaiting|draft|received|sourcing|evaluat/.test(key) ? 'orange' :
+          /reject|fail|no_supplier/.test(key) ? 'red' : '';
+        return `<span class="tag ${cls}">${escapeHtml(titleCase(status))}</span>`;
+      }
+      function caseStageIndex(item) {
+        const status = String(item.status || '').toLowerCase();
+        if (/po_created|delivered|received/.test(status)) return 4;
+        if (/approved/.test(status)) return 4;
+        if (/awaiting_approval|draft_ready/.test(status)) return 3;
+        if (/evaluat|no_supplier/.test(status)) return 2;
+        if (/sourcing/.test(status)) return 1;
+        return 0;
+      }
+      function renderStats() {
+        const pending = state.cases.filter((item) => ['draft_ready', 'awaiting_approval'].includes(String(item.status).toLowerCase())).length;
+        const committed = Object.values(state.workflows).reduce((sum, flow) => sum + Number(flow?.purchase_order?.total_price || 0), 0);
+        const currency = state.cases[0]?.currency || 'USD';
+        const stats = [
+          ['Active requests', state.cases.filter((item) => !/po_created|delivered|rejected/.test(String(item.status).toLowerCase())).length, `${state.cases.length} total cases`, icon.box, ''],
+          ['Supplier network', state.suppliers.length, `${state.offers.length} catalog offers`, icon.people, 'green'],
+          ['Pending approvals', pending, pending ? 'Needs a reviewer' : 'Nothing waiting on you', icon.shield, 'orange'],
+          ['Committed spend', money(committed, currency), `${state.cases.filter((item) => Object.values(state.workflows).some((flow) => flow?.case_id === item.id && flow.purchase_order)).length} purchase orders`, icon.cash, ''],
+        ];
+        $('#statsGrid').innerHTML = stats.map(([label, value, foot, svg, color]) => `<article class="stat-card"><div><div class="stat-label">${label}</div><div class="stat-number">${value}</div><div class="stat-foot">${foot}</div></div><div class="stat-icon ${color}">${svg}</div></article>`).join('');
+      }
+      function caseTable(items) {
+        if (!items.length) return `<div class="empty"><div><div class="empty-icon">${icon.box}</div>No cases yet. Create a request to start the procurement workflow.</div></div>`;
+        return `<table><thead><tr><th>Case</th><th>Requester</th><th>Status</th><th>Budget</th></tr></thead><tbody>${items.slice(0, 5).map((item) => `<tr><td><strong>${escapeHtml(state.products.find((product) => product.id === item.product_id)?.name || `Product #${item.product_id}`)}</strong><div class="table-id">CASE-${item.id}</div></td><td>${escapeHtml(item.requester_name || '—')}</td><td>${statusTag(item.status)}</td><td><strong>${money(item.budget, item.currency)}</strong></td></tr>`).join('')}</tbody></table>`;
+      }
+      function renderSpendChart() {
+        const recent = [...state.cases].slice(0, 6).reverse();
+        if (!recent.length) {
+          $('#spendChart').innerHTML = `<div class="empty" style="min-height:110px"><div>No case budgets to visualize yet.</div></div>`;
+          return;
         }
-      });
-
-      document.getElementById('supplierForm').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const payload = Object.fromEntries(new FormData(event.target).entries());
-        payload.reliability_score = Number(payload.reliability_score);
-        payload.verification_score = Number(payload.verification_score);
+        const max = Math.max(...recent.map((item) => Number(item.budget) || 0), 1);
+        $('#spendChart').innerHTML = `<div class="mini-bars">${recent.map((item) => {
+          const height = Math.max(9, Math.round((Number(item.budget || 0) / max) * 100));
+          return `<div class="mini-bar" style="height:${height}%" title="Case #${item.id}: ${money(item.budget, item.currency)}"><span>${money(item.budget, item.currency)}</span></div>`;
+        }).join('')}</div><div class="bar-labels">${recent.map((item) => `<span>Case ${item.id}</span>`).join('')}</div>`;
+      }
+      function workflowActions(item, detailId) {
+        const status = String(item.status || '').toLowerCase();
+        if (['received', 'intake'].includes(status)) return `<button class="button small" data-action="source" data-id="${item.id}">Source suppliers</button>`;
+        if (['sourcing', 'sourcing_complete', 'sourced'].includes(status)) {
+          const offers = state.workflows[item.id]?.source_summary?.eligible_offers || [];
+          return offers.length
+            ? `<button class="button small" data-action="evaluate" data-id="${item.id}">Evaluate offers</button>`
+            : `<button class="button small secondary" data-action="source" data-id="${item.id}">Check sourcing</button>`;
+        }
+        if (['evaluated', 'evaluation', 'no_supplier'].includes(status)) return `<button class="button small" data-action="draft" data-id="${item.id}">Prepare RFQ</button>`;
+        if (['draft_ready', 'awaiting_approval'].includes(status)) return `<button class="button small" data-action="approve" data-id="${item.id}">Review approval</button>`;
+        if (['po_created', 'delivered', 'received'].includes(status)) return `<button class="button small secondary" data-page-link="orders">View order</button>`;
+        if (/no_valid_offers|sourcing_failed|failed/.test(status)) return `<button class="button small secondary" data-action="source" data-id="${item.id}">Retry sourcing</button>`;
+        return `<button class="button small secondary" data-toggle-details="${detailId}">View workflow</button>`;
+      }
+      function caseCard(item, suffix = '') {
+        const product = state.products.find((entry) => entry.id === item.product_id);
+        const flow = state.workflows[item.id];
+        const detailId = `details-${item.id}${suffix ? `-${suffix}` : ''}`;
+        const stage = caseStageIndex(item);
+        const statuses = ['Request', 'Sourcing', 'Evaluation', 'Approval', 'Order'];
+        const progress = statuses.map((label, index) => `<div class="progress-step ${index < stage ? 'done' : index === stage ? 'current' : ''}">${label}</div>`).join('');
+        const purchaseOrder = flow?.purchase_order;
+        const delivery = flow?.delivery;
+        const extra = flow ? `<div class="workflow-info">
+          <div><small>Eligible offers</small><strong>${flow.source_summary?.eligible_offers?.length ?? 0} supplier offer(s)</strong></div>
+          <div><small>Estimated request</small><strong>${money(Number(item.budget), item.currency)} · ${item.quantity} unit(s)</strong></div>
+          <div><small>Purchase order</small><strong>${purchaseOrder ? `PO-${purchaseOrder.id} · ${titleCase(purchaseOrder.status)}` : 'Not created yet'}</strong></div>
+          ${flow.approval ? `<div><small>Approval decision</small><strong>${titleCase(flow.approval.decision)} by ${escapeHtml(flow.approval.approver_name)}</strong></div>` : ''}
+          ${delivery ? `<div><small>Latest delivery</small><strong>${titleCase(delivery.status)} · ${escapeHtml(delivery.updated_by || 'team')}</strong></div>` : ''}
+        </div>` : `<div class="detail-box">Workflow details are not available for this case yet.</div>`;
+        return `<article class="case-card">
+          <div class="case-main">
+            <div class="case-product"><span class="product-mark">${icon.box}</span><div><strong>${escapeHtml(product?.name || `Product #${item.product_id}`)}</strong><small>CASE-${item.id} · ${escapeHtml(state.companies.find((c) => c.id === item.company_id)?.name || `Company #${item.company_id}`)}</small></div></div>
+            <div class="case-metric"><span>Requester</span><strong>${escapeHtml(item.requester_name || '—')}</strong></div>
+            <div class="case-metric"><span>Quantity</span><strong>${item.quantity} units</strong></div>
+            <div class="case-metric"><span>Budget</span><strong>${money(item.budget, item.currency)}</strong></div>
+            <div>${statusTag(item.status)}</div>
+            <div class="case-actions">${workflowActions(item, detailId)}<button class="icon-button" data-toggle-details="${detailId}" aria-label="Show workflow details" title="Show workflow details"><svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+          </div>
+          <div class="case-details" id="${detailId}" hidden><div class="progress-track">${progress}</div>${extra}${flow?.evaluation_summary ? `<div class="detail-box">Evaluation: ${flow.evaluation_summary.offers_considered} offer(s) compared against a budget of ${money(flow.evaluation_summary.budget, flow.evaluation_summary.currency)}.</div>` : ''}</div>
+        </article>`;
+      }
+      function renderCases() {
+        const markup = state.cases.length ? state.cases.map(caseCard).join('') : `<div class="empty"><div><div class="empty-icon">${icon.box}</div>No procurement cases yet. Create a structured case to begin.</div></div>`;
+        $('#overviewCases').innerHTML = caseTable(state.cases);
+        $('#overviewCaseList').innerHTML = state.cases.length ? state.cases.map((item) => caseCard(item, 'overview')).join('') : markup;
+        $('#caseList').innerHTML = state.cases.length ? state.cases.map((item) => caseCard(item, 'requests')).join('') : markup;
+        $('#caseListCount').textContent = `${state.cases.length} ${state.cases.length === 1 ? 'case' : 'cases'}`;
+        const pending = state.cases.filter((item) => ['draft_ready', 'awaiting_approval'].includes(String(item.status).toLowerCase()));
+        $('#approvalCount').textContent = pending.length;
+        $('#approvalPageCount').textContent = `${pending.length} pending`;
+        $('#approvalList').innerHTML = pending.length ? pending.map((item) => caseCard(item, 'approval')).join('') : `<div class="empty"><div><div class="empty-icon">${icon.shield}</div>All clear. No requests are waiting for approval.</div></div>`;
+        const orders = state.cases.filter((item) => state.workflows[item.id]?.purchase_order);
+        $('#orderCount').textContent = `${orders.length} ${orders.length === 1 ? 'order' : 'orders'}`;
+        $('#orderList').innerHTML = orders.length ? orders.map((item) => {
+          const product = state.products.find((entry) => entry.id === item.product_id);
+          const flow = state.workflows[item.id];
+          const po = flow.purchase_order;
+          const delivery = flow.delivery;
+          const dStatus = String(delivery?.status || po.status || 'issued').toLowerCase();
+          const next = dStatus === 'issued' || dStatus === 'approved' ? 'in_transit' : dStatus === 'in_transit' ? 'delivered' : null;
+          return `<article class="order-card"><div class="order-head"><div><strong style="font-size:12px;color:#31394e">${escapeHtml(product?.name || `Product #${item.product_id}`)}</strong><div class="table-id" style="margin-top:5px">PO-${po.id} · CASE-${item.id}</div></div>${statusTag(delivery?.status || po.status)}</div><p>${escapeHtml(state.suppliers.find((supplier) => supplier.id === po.supplier_id)?.name || `Supplier #${po.supplier_id}`)} · ${item.quantity} unit(s) · ${money(po.total_price, po.currency)}</p><div class="form-actions">${next ? `<button class="button small" data-action="delivery" data-id="${item.id}" data-po-id="${po.id}" data-delivery="${next}">Mark ${titleCase(next)}</button>` : `<span class="tag green">Delivery complete</span>`}<button class="button secondary small" data-page-link="requests">Case details</button></div></article>`;
+        }).join('') : `<div class="empty"><div><div class="empty-icon">${icon.cash}</div>Approved purchases will appear here as purchase orders.</div></div>`;
+        bindDynamicActions();
+      }
+      function renderCatalog() {
+        populateSelects();
+        $('#offerCount').textContent = `${state.offers.length} ${state.offers.length === 1 ? 'offer' : 'offers'}`;
+        $('#companyList').innerHTML = state.companies.length ? `<div class="step-list">${state.companies.map((item) => `<div class="step-row"><span class="product-mark" style="width:30px;height:30px">${icon.box}</span><div class="step-copy"><strong>${escapeHtml(item.name)}</strong><small>Company #${item.id}</small></div></div>`).join('')}</div>` : `<div class="empty">Add a company to start a catalog.</div>`;
+        $('#catalogSummary').innerHTML = `<div class="workflow-info"><div><small>Products</small><strong>${state.products.length} registered</strong></div><div><small>Suppliers</small><strong>${state.suppliers.length} registered</strong></div><div><small>Priced offers</small><strong>${state.offers.length} available</strong></div></div>`;
+        $('#offerTable').innerHTML = state.offers.length ? `<table><thead><tr><th>Product</th><th>Supplier</th><th>Price</th><th>Lead time</th><th>Type</th><th>Evidence</th></tr></thead><tbody>${state.offers.map((offer) => {
+          const product = state.products.find((item) => item.id === offer.product_id);
+          const supplier = state.suppliers.find((item) => item.id === offer.supplier_id);
+          return `<tr><td><strong>${escapeHtml(product?.name || `Product #${offer.product_id}`)}</strong></td><td>${escapeHtml(supplier?.name || `Supplier #${offer.supplier_id}`)}</td><td><strong>${money(offer.price, offer.currency)}</strong></td><td>${offer.lead_time_days ?? '—'} days</td><td><span class="tag ${offer.is_internal ? 'green' : ''}">${offer.is_internal ? 'Internal' : 'External'}</span></td><td>${offer.source_url ? `<a href="${escapeHtml(offer.source_url)}" target="_blank" rel="noreferrer" style="color:#7065e9">Source ↗</a>` : escapeHtml(offer.evidence_note || 'Catalog entry')}</td></tr>`;
+        }).join('')}</tbody></table>` : `<div class="empty"><div><div class="empty-icon">${icon.box}</div>No supplier offers yet. Add a priced catalog offer to enable matching.</div></div>`;
+      }
+      function renderRequests() {
+        $('#requestCount').textContent = state.requests.length;
+        const markup = state.requests.length ? state.requests.map((item) => {
+          const parsed = item.workflow_state || {};
+          return `<article class="request-card"><div class="request-head"><div><strong style="font-size:11px">${escapeHtml(item.item_name || 'Procurement request')}</strong><div class="table-id" style="margin-top:4px">REQ-${item.id}</div></div>${statusTag(item.status)}</div><p>${escapeHtml(item.raw_request)}</p><div class="request-meta"><span>Quantity: <b>${item.quantity ?? 'Not detected'}</b></span><span>Budget: <b>${item.max_budget == null ? 'Not detected' : money(item.max_budget)}</b></span><span>Parsed: ${item.created_at ? new Date(item.created_at).toLocaleString() : 'Just now'}</span></div>${parsed && Object.keys(parsed).length ? `<details class="detail-box"><summary>View AI extraction output</summary><pre>${escapeHtml(JSON.stringify(parsed, null, 2))}</pre></details>` : ''}</article>`;
+        }).join('') : `<div class="empty"><div>No parsed request history yet. Submit a natural-language request above.</div></div>`;
+        $('#requestHistory').innerHTML = markup;
+      }
+      function render() {
+        renderStats();
+        renderSpendChart();
+        renderCases();
+        renderCatalog();
+        renderRequests();
+      }
+      function bindDynamicActions() {
+        $$('[data-toggle-details]').forEach((button) => {
+          button.onclick = () => {
+            const el = document.getElementById(button.dataset.toggleDetails);
+            if (el) el.hidden = !el.hidden;
+          };
+        });
+        $$('[data-page-link]').forEach((button) => button.onclick = () => showPage(button.dataset.pageLink));
+        $$('[data-action]').forEach((button) => button.onclick = () => runCaseAction(button));
+      }
+      async function runCaseAction(button) {
+        const { action, id } = button.dataset;
         try {
-          const result = await requestJson('/suppliers', { method: 'POST', body: JSON.stringify(payload) });
-          setStatus('Supplier created.');
-          responseBox.textContent = JSON.stringify(result, null, 2);
+          setBusy(button, true, action === 'source' ? 'Sourcing…' : action === 'evaluate' ? 'Evaluating…' : 'Working…');
+          if (action === 'source') {
+            const result = await api(`/cases/${id}/source`, { method: 'POST', body: '{}' });
+            notify(result.message || `Sourcing finished: ${titleCase(result.status)}.`);
+          } else if (action === 'evaluate') {
+            const result = await api(`/cases/${id}/evaluate`, { method: 'POST', body: '{}' });
+            notify(result.status === 'evaluated' ? 'Offers evaluated and a supplier selected.' : 'No eligible supplier found for this request.', result.status !== 'evaluated');
+          } else if (action === 'draft') {
+            await api(`/cases/${id}/rfq-draft`, { method: 'POST', body: '{}' });
+            notify('RFQ draft prepared. It has not been sent.');
+          } else if (action === 'approve' || action === 'reject') {
+            const item = state.cases.find((row) => String(row.id) === String(id));
+            const approver = window.prompt(`Name of person ${action === 'approve' ? 'approving' : 'rejecting'} this request:`);
+            if (!approver?.trim()) { setBusy(button, false); return; }
+            const reason = window.prompt('Optional comment for the audit record:') || '';
+            const result = await api(`/cases/${id}/${action}`, { method: 'POST', body: JSON.stringify({
+              approver_name: approver.trim(),
+              decision: action === 'approve' ? 'approved' : 'rejected',
+              reason: reason.trim() || null,
+            }) });
+            notify(action === 'approve' ? `Approved. ${result.message || 'The purchase order has been created.'}` : 'Request rejected; no purchase order was created.');
+          } else if (action === 'delivery') {
+            const updatedBy = window.prompt('Name of person updating delivery:', 'Procurement team');
+            if (!updatedBy?.trim()) { setBusy(button, false); return; }
+            await api(`/purchase-orders/${button.dataset.poId}/delivery`, { method: 'POST', body: JSON.stringify({ status: button.dataset.delivery, updated_by: updatedBy.trim(), notes: `Updated from Procura dashboard.` }) });
+            notify(`Delivery marked ${button.dataset.delivery.replace('_', ' ')}.`);
+          }
+          await loadWorkspace();
         } catch (error) {
-          setStatus(error.message);
+          notify(error.message, true);
+          await loadWorkspace();
+        } finally {
+          if (button.isConnected) setBusy(button, false);
         }
-      });
+      }
+      function showPage(page) {
+        $$('.page').forEach((section) => section.classList.toggle('active', section.id === `page-${page}`));
+        $$('.nav-link').forEach((link) => link.classList.toggle('active', link.dataset.page === page));
+        const active = $(`.nav-link[data-page="${page}"]`);
+        $('#crumbTitle').textContent = active?.querySelector('.nav-label')?.textContent || 'Overview';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      $$('.nav-link').forEach((link) => link.addEventListener('click', () => showPage(link.dataset.page)));
+      $$('[data-go]').forEach((button) => button.addEventListener('click', () => showPage(button.dataset.go)));
+      $('#topCreateBtn').addEventListener('click', () => showPage('requests'));
+      $('#refreshBtn').addEventListener('click', loadWorkspace);
 
-      document.getElementById('offerForm').addEventListener('submit', async (event) => {
+      $('#quickRequestForm').addEventListener('submit', async (event) => {
         event.preventDefault();
-        const payload = Object.fromEntries(new FormData(event.target).entries());
-        payload.supplier_id = Number(payload.supplier_id);
-        payload.product_id = Number(payload.product_id);
-        payload.price = Number(payload.price);
-        payload.lead_time_days = Number(payload.lead_time_days);
-        payload.is_internal = payload.is_internal === 'true';
+        const button = $('button[type="submit"]', event.currentTarget);
         try {
-          const result = await requestJson('/offers', { method: 'POST', body: JSON.stringify(payload) });
-          setStatus('Offer created.');
-          responseBox.textContent = JSON.stringify(result, null, 2);
-        } catch (error) {
-          setStatus(error.message);
-        }
+          setBusy(button, true, 'Analyzing…');
+          const result = await api('/requests', { method: 'POST', body: JSON.stringify({ request: $('#quickRequest').value.trim() }) });
+          $('#quickRequestResult').innerHTML = `<div class="request-card" style="margin-top:14px;border-color:#e6e2ff;background:#fbfaff"><div class="request-head"><strong style="font-size:11px">Request parsed</strong>${statusTag(result.status)}</div><div class="request-meta"><span>Item: <b>${escapeHtml(result.item_name || 'Not detected')}</b></span><span>Quantity: <b>${result.quantity ?? 'Not detected'}</b></span><span>Budget: <b>${result.max_budget == null ? 'Not detected' : money(result.max_budget)}</b></span></div><p style="margin-bottom:0">Review these extracted details, then create a structured case to begin catalog sourcing.</p></div>`;
+          $('#quickRequest').value = '';
+          notify('Request captured and parsed.');
+          await loadWorkspace();
+        } catch (error) { notify(error.message, true); }
+        finally { setBusy(button, false); }
       });
-
-      document.getElementById('caseForm').addEventListener('submit', async (event) => {
+      $('#requestForm').addEventListener('submit', async (event) => {
         event.preventDefault();
-        const payload = Object.fromEntries(new FormData(event.target).entries());
-        payload.company_id = Number(payload.company_id);
-        payload.product_id = Number(payload.product_id);
-        payload.quantity = Number(payload.quantity);
-        payload.budget = Number(payload.budget);
+        const button = $('button[type="submit"]', event.currentTarget);
         try {
-          const result = await requestJson('/cases', { method: 'POST', body: JSON.stringify(payload) });
-          document.querySelector('#workflowForm input[name="case_id"]').value = result.id;
-          setStatus('Procurement case created.');
-          responseBox.textContent = JSON.stringify(result, null, 2);
-        } catch (error) {
-          setStatus(error.message);
-        }
+          setBusy(button, true, 'Analyzing…');
+          const result = await api('/requests', { method: 'POST', body: JSON.stringify({ request: $('#requestText').value.trim() }) });
+          $('#requestResult').innerHTML = `<div class="request-card" style="margin-top:14px;border-color:#e6e2ff;background:#fbfaff"><div class="request-head"><strong style="font-size:11px">Parsed request · REQ-${result.id}</strong>${statusTag(result.status)}</div><div class="request-meta"><span>Item: <b>${escapeHtml(result.item_name || 'Not detected')}</b></span><span>Quantity: <b>${result.quantity ?? 'Not detected'}</b></span><span>Budget: <b>${result.max_budget == null ? 'Not detected' : money(result.max_budget)}</b></span></div><details class="detail-box"><summary>View structured extraction</summary><pre>${escapeHtml(JSON.stringify(result.workflow_state || {}, null, 2))}</pre></details></div>`;
+          $('#requestText').value = '';
+          notify('Request captured and parsed.');
+          await loadWorkspace();
+        } catch (error) { notify(error.message, true); }
+        finally { setBusy(button, false); }
       });
-
-      document.getElementById('sourceBtn').addEventListener('click', async () => {
-        const caseId = document.querySelector('#workflowForm input[name="case_id"]').value;
+      $('#caseForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formElement = event.currentTarget;
+        const button = $('button[type="submit"]', formElement);
+        const form = new FormData(formElement);
         try {
-          const result = await requestJson(`/cases/${caseId}/source`, { method: 'POST', body: '{}' });
-          setStatus('Supplier sourcing complete.');
-          responseBox.textContent = JSON.stringify(result, null, 2);
-        } catch (error) { setStatus(error.message); }
+          setBusy(button, true, 'Creating case…');
+          const result = await api('/cases', { method: 'POST', body: JSON.stringify({
+            company_id: Number(form.get('company_id')),
+            product_id: Number(form.get('product_id')),
+            quantity: Number(form.get('quantity')),
+            budget: Number(form.get('budget')),
+            currency: form.get('currency'),
+            requester_name: form.get('requester_name').trim(),
+            notes: form.get('notes')?.trim() || null,
+          }) });
+          formElement.reset();
+          notify(`Case #${result.id} created. Start by sourcing suppliers.`);
+          await loadWorkspace();
+          showPage('requests');
+          const details = $(`#details-${result.id}-requests`);
+          if (details) details.hidden = false;
+        } catch (error) { notify(error.message, true); }
+        finally { setBusy(button, false); }
       });
-
-      document.getElementById('evaluateBtn').addEventListener('click', async () => {
-        const caseId = document.querySelector('#workflowForm input[name="case_id"]').value;
+      $('#companyForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formElement = event.currentTarget;
+        const button = $('button[type="submit"]', formElement);
+        const data = Object.fromEntries(new FormData(formElement));
+        try { setBusy(button, true, 'Saving…'); await api('/companies', { method: 'POST', body: JSON.stringify(data) }); formElement.reset(); await loadWorkspace(); notify('Company added to your workspace.'); }
+        catch (error) { notify(error.message, true); }
+        finally { setBusy(button, false); }
+      });
+      $('#productForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formElement = event.currentTarget;
+        const button = $('button[type="submit"]', formElement);
+        const data = Object.fromEntries(new FormData(formElement));
+        data.company_id = Number(data.company_id);
+        try { setBusy(button, true, 'Saving…'); await api('/products', { method: 'POST', body: JSON.stringify(data) }); formElement.reset(); await loadWorkspace(); notify('Product added to the catalog.'); }
+        catch (error) { notify(error.message, true); }
+        finally { setBusy(button, false); }
+      });
+      $('#supplierForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formElement = event.currentTarget;
+        const button = $('button[type="submit"]', formElement);
+        const data = Object.fromEntries(new FormData(formElement));
+        data.reliability_score = Number(data.reliability_score);
+        data.verification_score = Number(data.verification_score);
+        try { setBusy(button, true, 'Saving…'); await api('/suppliers', { method: 'POST', body: JSON.stringify(data) }); formElement.reset(); await loadWorkspace(); notify('Supplier added to your network.'); }
+        catch (error) { notify(error.message, true); }
+        finally { setBusy(button, false); }
+      });
+      $('#offerForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formElement = event.currentTarget;
+        const button = $('button[type="submit"]', formElement);
+        const data = Object.fromEntries(new FormData(formElement));
+        data.supplier_id = Number(data.supplier_id);
+        data.product_id = Number(data.product_id);
+        data.price = Number(data.price);
+        data.lead_time_days = Number(data.lead_time_days);
+        data.is_internal = data.is_internal === 'true';
+        data.source_url = data.source_url || null;
+        data.evidence_note = data.evidence_note || null;
+        try { setBusy(button, true, 'Saving offer…'); await api('/offers', { method: 'POST', body: JSON.stringify(data) }); formElement.reset(); await loadWorkspace(); notify('Priced supplier offer saved.'); }
+        catch (error) { notify(error.message, true); }
+        finally { setBusy(button, false); }
+      });
+      $('#resetBtn').addEventListener('click', async () => {
+        const confirmed = window.confirm('Reset the entire local demo workspace? This deletes all companies, products, suppliers, offers, cases, approvals, purchase orders, deliveries, and parsed requests in this database, then creates fresh sample data.');
+        if (!confirmed) return;
         try {
-          const result = await requestJson(`/cases/${caseId}/evaluate`, { method: 'POST', body: '{}' });
-          setStatus('Offers evaluated.');
-          responseBox.textContent = JSON.stringify(result, null, 2);
-        } catch (error) { setStatus(error.message); }
+          const result = await api('/demo/reset', { method: 'POST', body: '{}' });
+          await loadWorkspace();
+          notify(result.message || 'Demo workspace reset.');
+        } catch (error) { notify(error.message, true); }
       });
-
-      document.getElementById('draftBtn').addEventListener('click', async () => {
-        const caseId = document.querySelector('#workflowForm input[name="case_id"]').value;
-        try {
-          const result = await requestJson(`/cases/${caseId}/rfq-draft`, { method: 'POST', body: '{}' });
-          setStatus('RFQ draft generated.');
-          responseBox.textContent = JSON.stringify(result, null, 2);
-        } catch (error) { setStatus(error.message); }
+      $('#caseCompany').addEventListener('change', () => {
+        const companyId = Number($('#caseCompany').value);
+        const products = state.products.filter((product) => product.company_id === companyId);
+        $('#caseProduct').innerHTML = selectOptions(products, 'Choose a product');
       });
-
-      document.getElementById('approveBtn').addEventListener('click', async () => {
-        const caseId = document.querySelector('#workflowForm input[name="case_id"]').value;
-        const approverName = document.getElementById('approverName').value;
-        try {
-          const result = await requestJson(`/cases/${caseId}/approve`, { method: 'POST', body: JSON.stringify({ approver_name: approverName, decision: 'approved', reason: 'Approved by demo reviewer.' }) });
-          setStatus('Approval recorded.');
-          responseBox.textContent = JSON.stringify(result, null, 2);
-        } catch (error) { setStatus(error.message); }
+      $('#offerInternal').addEventListener('change', (event) => {
+        event.currentTarget.setCustomValidity('');
       });
-
-      document.getElementById('rejectBtn').addEventListener('click', async () => {
-        const caseId = document.querySelector('#workflowForm input[name="case_id"]').value;
-        const approverName = document.getElementById('approverName').value;
-        try {
-          const result = await requestJson(`/cases/${caseId}/reject`, { method: 'POST', body: JSON.stringify({ approver_name: approverName, decision: 'rejected', reason: 'Demo rejection.' }) });
-          setStatus('Case rejected.');
-          responseBox.textContent = JSON.stringify(result, null, 2);
-        } catch (error) { setStatus(error.message); }
-      });
-
-      document.getElementById('deliveryBtn').addEventListener('click', async () => {
-        const caseId = document.querySelector('#workflowForm input[name="case_id"]').value;
-        try {
-          const workflow = await requestJson(`/cases/${caseId}/workflow`, { method: 'GET' });
-          const poId = workflow.purchase_order && workflow.purchase_order.id ? workflow.purchase_order.id : 1;
-          const result = await requestJson(`/purchase-orders/${poId}/delivery`, { method: 'POST', body: JSON.stringify({ status: 'delivered', updated_by: 'demo-user', notes: 'Delivered during the local demo.' }) });
-          setStatus('Delivery updated.');
-          responseBox.textContent = JSON.stringify(result, null, 2);
-        } catch (error) { setStatus(error.message); }
-      });
-
-      document.getElementById('seedDemoBtn').addEventListener('click', async () => {
-        try {
-          const result = await requestJson('/demo/reset', { method: 'POST', body: '{}' });
-          responseBox.textContent = JSON.stringify(result, null, 2);
-          setStatus('Demo repository refreshed.');
-        } catch (error) { setStatus(error.message); }
-      });
+      const today = new Date();
+      $('#todayLabel').textContent = today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
+      loadWorkspace();
+      setInterval(loadWorkspace, 60000);
     </script>
   </body>
 </html>

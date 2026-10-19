@@ -91,6 +91,7 @@ function App() {
   const [retryingCaseId, setRetryingCaseId] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [activeSection, setActiveSection] = useState('overview')
 
   const [companyForm, setCompanyForm] = useState({ name: '' })
   const [productForm, setProductForm] = useState({
@@ -348,28 +349,77 @@ function App() {
     }
   }
 
+  const scrollToSection = (sectionId) => {
+    setActiveSection(sectionId)
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">Procurement workspace</p>
-          <h1>Procura AI</h1>
+    <div className="workspace-shell">
+      <aside className="sidebar">
+        <div className="brand-lockup">
+          <span className="brand-mark">P</span>
+          <span><strong>procura</strong><small>AI PROCUREMENT</small></span>
         </div>
-        <button className="primary-button" type="button" onClick={loadData}>
-          Refresh data
-        </button>
-      </header>
+        <p className="nav-caption">WORKSPACE</p>
+        <nav className="side-nav" aria-label="Workspace navigation">
+          <button type="button" className={`nav-item ${activeSection === 'overview' ? 'active' : ''}`} onClick={() => scrollToSection('overview')}><span className="nav-glyph">⌂</span>Overview</button>
+          <button type="button" className={`nav-item ${activeSection === 'request-form' ? 'active' : ''}`} onClick={() => scrollToSection('request-form')}><span className="nav-glyph">＋</span>New request</button>
+          <button type="button" className={`nav-item ${activeSection === 'catalog-offers' ? 'active' : ''}`} onClick={() => scrollToSection('catalog-offers')}><span className="nav-glyph">▤</span>Supplier catalog</button>
+          <button type="button" className={`nav-item ${activeSection === 'procurement-pipeline' ? 'active' : ''}`} onClick={() => scrollToSection('procurement-pipeline')}><span className="nav-glyph">↗</span>Procurement pipeline<span className="nav-count">{cases.length}</span></button>
+          <button type="button" className={`nav-item ${activeSection === 'approval-queue' ? 'active' : ''}`} onClick={() => scrollToSection('approval-queue')}><span className="nav-glyph">✓</span>Approvals<span className="nav-count">{approvals.filter((approval) => approval.status === 'PENDING').length}</span></button>
+          <button type="button" className={`nav-item ${activeSection === 'purchase-orders' ? 'active' : ''}`} onClick={() => scrollToSection('purchase-orders')}><span className="nav-glyph">▣</span>Orders & delivery</button>
+        </nav>
+        <div className="sidebar-spacer" />
+        <div className="assistant-card">
+          <span className="assistant-spark">✦</span>
+          <strong>Procura assistant</strong>
+          <p>Turn a request into a clear, reviewable buying workflow.</p>
+          <span className="assistant-status"><i /> Ready to assist</span>
+        </div>
+        <div className="workspace-profile">
+          <span className="profile-avatar">PT</span>
+          <span><strong>Procurement team</strong><small>Local workspace</small></span>
+          <span className="profile-menu">···</span>
+        </div>
+      </aside>
 
-      {error && <div className="error-banner">{error}</div>}
+      <main className="main-content">
+        <div className="app-shell">
+          <header className="topbar" id="overview">
+            <div className="breadcrumb"><span>Workspace</span><b>/</b><strong>Overview</strong></div>
+            <div className="topbar-actions">
+              <span className="connection-state"><i /> API workspace</span>
+              <button className="secondary-button" type="button" onClick={loadData}>
+                <span aria-hidden="true">↻</span> Refresh
+              </button>
+              <button className="primary-button" type="button" onClick={() => scrollToSection('request-form')}>
+                <span aria-hidden="true">＋</span> New request
+              </button>
+            </div>
+          </header>
 
-      <section className="stats-grid">
-        {stats.map((stat) => (
-          <article key={stat.label} className="stat-card">
-            <span>{stat.label}</span>
-            <strong>{stat.value}</strong>
-          </article>
-        ))}
-      </section>
+          {error && <div className="error-banner">{error}</div>}
+
+          <section className="welcome-banner">
+            <div className="welcome-copy">
+              <p className="eyebrow">PROCUREMENT INTELLIGENCE</p>
+              <h1>Good to see you.</h1>
+              <p>Bring every purchase request, supplier decision, and approval into one clear workspace.</p>
+              <button className="banner-button" type="button" onClick={() => scrollToSection('request-form')}>Start a request <span aria-hidden="true">→</span></button>
+            </div>
+            <div className="welcome-art" aria-hidden="true"><span className="orbit orbit-one" /><span className="orbit orbit-two" /><span className="orbit orbit-three" /><span className="orbit-core">✦</span><span className="orbit-node node-one" /><span className="orbit-node node-two" /></div>
+          </section>
+
+          <section className="stats-grid">
+            {stats.map((stat, index) => (
+              <article key={stat.label} className="stat-card">
+                <div className="stat-topline"><span>{stat.label}</span><span className={`stat-icon stat-icon-${index}`}>{['▦', '◇', '✓', '◷', '↗'][index]}</span></div>
+                <strong>{stat.value}</strong>
+                <small>{index === 3 ? 'Awaiting a decision' : index === 4 ? 'Across active requests' : 'In this workspace'}</small>
+              </article>
+            ))}
+          </section>
 
       {loading ? (
         <div className="loading-state">Loading workspace…</div>
@@ -561,7 +611,7 @@ function App() {
               </form>
             </section>
 
-            <section className="panel">
+            <section className="panel request-panel" id="request-form">
               <h2>New case</h2>
               <form onSubmit={handleCaseSubmit} className="stack-form">
                 <select
@@ -617,7 +667,7 @@ function App() {
             </section>
           </div>
 
-          <section className="panel panel-wide">
+          <section className="panel panel-wide" id="catalog-offers">
             <h2>Supplier catalog offers</h2>
             {supplierOffers.length === 0 ? (
               <p className="empty-state">
@@ -655,7 +705,7 @@ function App() {
             )}
           </section>
 
-          <section className="panel panel-wide">
+          <section className="panel panel-wide" id="procurement-pipeline">
             <h2>Procurement pipeline</h2>
             <div className="table-wrapper">
               <table>
@@ -702,7 +752,7 @@ function App() {
             </div>
           </section>
 
-          <section className="panel panel-wide">
+          <section className="panel panel-wide" id="workflow-runs">
             <h2>Agent workflow runs</h2>
             {workflows.length === 0 ? (
               <p className="empty-state">Submit a procurement request to start the agent workflow.</p>
@@ -820,7 +870,7 @@ function App() {
           </section>
 
           <div className="data-grid workflow-grid">
-            <section className="panel">
+            <section className="panel" id="approval-queue">
               <h2>Approval queue</h2>
               {approvals.filter((approval) => approval.status === 'PENDING').length === 0 ? (
                 <p className="empty-state">No requests waiting for approval.</p>
@@ -843,7 +893,7 @@ function App() {
               )}
             </section>
 
-            <section className="panel">
+            <section className="panel" id="selected-offers">
               <h2>Selected offers</h2>
               {quotes.length === 0 ? (
                 <p className="empty-state">Offers appear here after you submit a request.</p>
@@ -865,7 +915,7 @@ function App() {
               )}
             </section>
 
-            <section className="panel">
+            <section className="panel" id="purchase-orders">
               <h2>Purchase orders</h2>
               {purchaseOrders.length === 0 ? (
                 <p className="empty-state">A PO is created after an approval is granted.</p>
@@ -903,7 +953,7 @@ function App() {
               )}
             </section>
 
-            <section className="panel">
+            <section className="panel" id="delivery-tracking">
               <h2>Delivery tracking</h2>
               {deliveries.length === 0 ? (
                 <p className="empty-state">Tracking starts after approval creates a purchase order.</p>
@@ -980,8 +1030,11 @@ function App() {
               </ul>
             </section>
           </div>
+          <footer className="app-footer"><span>Procura AI · Procurement operations, made clear.</span><span>Local demo workspace</span></footer>
         </>
       )}
+    </div>
+      </main>
     </div>
   )
 }

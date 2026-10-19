@@ -1,9 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
 :root {
-  font-family: Inter, 'Segoe UI', sans-serif;
+  font-family: 'DM Sans', Inter, 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #0f172a;
-  background: #eef4ff;
+  color: #20243a;
+  background: #f6f7fb;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -15,14 +17,16 @@
 }
 
 html {
-  background: #eef4ff;
+  min-width: 320px;
+  scroll-behavior: smooth;
+  background: #f6f7fb;
 }
 
 body {
-  margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: linear-gradient(180deg, #edf4ff 0%, #f8fafc 100%);
+  margin: 0;
+  background: #f6f7fb;
 }
 
 button,
@@ -32,6 +36,16 @@ textarea {
   font: inherit;
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
 #root {
   min-height: 100vh;
+}
+
+::selection {
+  color: #27214d;
+  background: #dcd8ff;
 }
